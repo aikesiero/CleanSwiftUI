@@ -11,7 +11,7 @@ import XCTest
 class AppDelegateTest: XCTestCase {
 
     var sut: AppDelegate?
-    
+
     override func setUpWithError() throws {
         try super.setUpWithError()
         sut = AppDelegate()
@@ -28,7 +28,4 @@ class AppDelegateTest: XCTestCase {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct results.
     }
-
-
-
 }
