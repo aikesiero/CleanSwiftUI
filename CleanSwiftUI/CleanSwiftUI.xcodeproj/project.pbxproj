@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		9D2CF4BA2726FE7A0092B72B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2CF4B92726FE7A0092B72B /* AppDelegate.swift */; };
+		9D2CF4BD272700360092B72B /* AppDelegateTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2CF4BC272700360092B72B /* AppDelegateTest.swift */; };
 		9D71A9B02726C1C00020AF97 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D71A9AF2726C1C00020AF97 /* ContentView.swift */; };
 		9D71A9B22726C1C10020AF97 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9D71A9B12726C1C10020AF97 /* Assets.xcassets */; };
 		9D71A9B52726C1C10020AF97 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9D71A9B42726C1C10020AF97 /* Preview Assets.xcassets */; };
@@ -27,6 +28,7 @@
 
 /* Begin PBXFileReference section */
 		9D2CF4B92726FE7A0092B72B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		9D2CF4BC272700360092B72B /* AppDelegateTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegateTest.swift; sourceTree = "<group>"; };
 		9D71A9AA2726C1C00020AF97 /* CleanSwiftUI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CleanSwiftUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9D71A9AF2726C1C00020AF97 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		9D71A9B12726C1C10020AF97 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -116,6 +118,7 @@
 		9D71A9F12726CA430020AF97 /* System */ = {
 			isa = PBXGroup;
 			children = (
+				9D2CF4BC272700360092B72B /* AppDelegateTest.swift */,
 			);
 			path = System;
 			sourceTree = "<group>";
@@ -251,6 +254,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9D2CF4BD272700360092B72B /* AppDelegateTest.swift in Sources */,
 				9D71A9E32726C6330020AF97 /* UnitTest.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
