@@ -141,6 +141,7 @@
 				9D71A9A72726C1C00020AF97 /* Frameworks */,
 				9D71A9A82726C1C00020AF97 /* Resources */,
 				9D71A9F32726D2540020AF97 /* ShellScript */,
+				9DBD67C32728C06D00CF6A8B /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -225,6 +226,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if test -d \"/opt/homebrew/bin/\"; then\n  PATH=\"/opt/homebrew/bin/:${PATH}\"\nfi\n\nexport PATH\n\nif which swiftlint >/dev/null; then\n  swiftlint\nelse\n  echo \"warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint\"\nfi\n";
+		};
+		9DBD67C32728C06D00CF6A8B /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/usr/bin/env bash\nset -euo pipefail\n\nfunction convert_file {\n  local xccovarchive_file=\"$1\"\n  local file_name=\"$2\"\n  local xccov_options=\"$3\"\n  echo \"  <file path=\\\"$file_name\\\">\"\n  xcrun xccov view $xccov_options --file \"$file_name\" \"$xccovarchive_file\" | \\\n    sed -n '\n    s/^ *\\([0-9][0-9]*\\): 0.*$/    <lineToCover lineNumber=\"\\1\" covered=\"false\"\\/>/p;\n    s/^ *\\([0-9][0-9]*\\): [1-9].*$/    <lineToCover lineNumber=\"\\1\" covered=\"true\"\\/>/p\n    '\n  echo '  </file>'\n}\n\nfunction xccov_to_generic {\n  echo '<coverage version=\"1\">'\n  for xccovarchive_file in \"$@\"; do\n    if [[ ! -d $xccovarchive_file ]]\n    then\n      echo \"Coverage FILE NOT FOUND AT PATH: $xccovarchive_file\" 1>&2;\n      exit 1\n    fi\n    local xccov_options=\"\"\n    if [[ $xccovarchive_file == *\".xcresult\"* ]]; then\n      xccov_options=\"--archive\"\n    fi\n    xcrun xccov view $xccov_options --file-list \"$xccovarchive_file\" | while read -r file_name; do\n      convert_file \"$xccovarchive_file\" \"$file_name\" \"$xccov_options\"\n    done\n  done\n  echo '</coverage>'\n}\n\nxccov_to_generic \"$@\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
