@@ -1,2 +1,0 @@
-Target dependency graph (1 target)
-CleanSwiftUI in CleanSwiftUI, no dependencies
