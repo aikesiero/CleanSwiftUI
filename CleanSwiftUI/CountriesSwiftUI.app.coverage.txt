@@ -1,0 +1,4175 @@
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Injected/AppState.swift:
+    1|       |//
+    2|       |//  AppState.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 23.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |import Combine
+   11|       |
+   12|       |struct AppState: Equatable {
+   13|     99|    var userData = UserData()
+   14|     99|    var routing = ViewRouting()
+   15|     99|    var system = System()
+   16|     99|    var permissions = Permissions()
+   17|       |}
+   18|       |
+   19|       |extension AppState {
+   20|       |    struct UserData: Equatable {
+   21|       |        /*
+   22|       |         The list of countries (Loadable<[Country]>) used to be stored here.
+   23|       |         It was removed for performing countries' search by name inside a database,
+   24|       |         which made the resulting variable used locally by just one screen (CountriesList)
+   25|       |         Otherwise, the list of countries could have remained here, available for the entire app.
+   26|       |         */
+   27|       |    }
+   28|       |}
+   29|       |
+   30|       |extension AppState {
+   31|       |    struct ViewRouting: Equatable {
+   32|    102|        var countriesList = CountriesList.Routing()
+   33|    102|        var countryDetails = CountryDetails.Routing()
+   34|       |    }
+   35|       |}
+   36|       |
+   37|       |extension AppState {
+   38|       |    struct System: Equatable {
+   39|       |        var isActive: Bool = false
+   40|       |        var keyboardHeight: CGFloat = 0
+   41|       |    }
+   42|       |}
+   43|       |
+   44|       |extension AppState {
+   45|       |    struct Permissions: Equatable {
+   46|     99|        var push: Permission.Status = .unknown
+   47|       |    }
+   48|       |    
+   49|     37|    static func permissionKeyPath(for permission: Permission) -> WritableKeyPath<AppState, Permission.Status> {
+   50|     37|        let pathToPermissions = \AppState.permissions
+   51|     37|        switch permission {
+   52|     37|        case .pushNotifications:
+   53|     37|            return pathToPermissions.appending(path: \.push)
+   54|     37|        }
+   55|     37|    }
+   56|       |}
+   57|       |
+   58|     20|func == (lhs: AppState, rhs: AppState) -> Bool {
+   59|     20|    return lhs.userData == rhs.userData &&
+   60|     20|        lhs.routing == rhs.routing &&
+   61|     20|        lhs.system == rhs.system &&
+   62|     20|        lhs.permissions == rhs.permissions
+   63|     20|}
+   64|       |
+   65|       |#if DEBUG
+   66|       |extension AppState {
+   67|      4|    static var preview: AppState {
+   68|      4|        var state = AppState()
+   69|      4|        state.system.isActive = true
+   70|      4|        return state
+   71|      4|    }
+   72|       |}
+   73|       |#endif
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Injected/DependencyInjector.swift:
+    1|       |//
+    2|       |//  DependencyInjector.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 28.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |import Combine
+   11|       |
+   12|       |// MARK: - DIContainer
+   13|       |
+   14|       |struct DIContainer: EnvironmentKey {
+   15|       |    
+   16|       |    let appState: Store<AppState>
+   17|       |    let interactors: Interactors
+   18|       |    
+   19|     47|    init(appState: Store<AppState>, interactors: Interactors) {
+   20|     47|        self.appState = appState
+   21|     47|        self.interactors = interactors
+   22|     47|    }
+   23|       |    
+   24|     21|    init(appState: AppState, interactors: Interactors) {
+   25|     21|        self.init(appState: Store<AppState>(appState), interactors: interactors)
+   26|     21|    }
+   27|       |    
+   28|    138|    static var defaultValue: Self { Self.default }
+   29|       |    
+   30|       |    private static let `default` = Self(appState: AppState(), interactors: .stub)
+   31|       |}
+   32|       |
+   33|       |extension EnvironmentValues {
+   34|       |    var injected: DIContainer {
+   35|    282|        get { self[DIContainer.self] }
+   36|     75|        set { self[DIContainer.self] = newValue }
+   37|       |    }
+   38|       |}
+   39|       |
+   40|       |#if DEBUG
+   41|       |extension DIContainer {
+   42|      4|    static var preview: Self {
+   43|      4|        .init(appState: .init(AppState.preview), interactors: .stub)
+   44|      4|    }
+   45|       |}
+   46|       |#endif
+   47|       |
+   48|       |// MARK: - Injection in the view hierarchy
+   49|       |
+   50|       |extension View {
+   51|       |    
+   52|       |    func inject(_ appState: AppState,
+   53|     14|                _ interactors: DIContainer.Interactors) -> some View {
+   54|     14|        let container = DIContainer(appState: .init(appState),
+   55|     14|                                    interactors: interactors)
+   56|     14|        return inject(container)
+   57|     14|    }
+   58|       |    
+   59|     30|    func inject(_ container: DIContainer) -> some View {
+   60|     30|        return self
+   61|     30|            .modifier(RootViewAppearance())
+   62|     30|            .environment(\.injected, container)
+   63|     30|    }
+   64|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Injected/InteractorsContainer.swift:
+    1|       |//
+    2|       |//  DIContainer.Interactors.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 24.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |extension DIContainer {
+   10|       |    struct Interactors {
+   11|       |        let countriesInteractor: CountriesInteractor
+   12|       |        let imagesInteractor: ImagesInteractor
+   13|       |        let userPermissionsInteractor: UserPermissionsInteractor
+   14|       |        
+   15|       |        init(countriesInteractor: CountriesInteractor,
+   16|       |             imagesInteractor: ImagesInteractor,
+   17|     47|             userPermissionsInteractor: UserPermissionsInteractor) {
+   18|     47|            self.countriesInteractor = countriesInteractor
+   19|     47|            self.imagesInteractor = imagesInteractor
+   20|     47|            self.userPermissionsInteractor = userPermissionsInteractor
+   21|     47|        }
+   22|       |        
+   23|      5|        static var stub: Self {
+   24|      5|            .init(countriesInteractor: StubCountriesInteractor(),
+   25|      5|                  imagesInteractor: StubImagesInteractor(),
+   26|      5|                  userPermissionsInteractor: StubUserPermissionsInteractor())
+   27|      5|        }
+   28|       |    }
+   29|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Interactors/CountriesInteractor.swift:
+    1|       |//
+    2|       |//  CountriesInteractor.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 23.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Combine
+   10|       |import Foundation
+   11|       |import SwiftUI
+   12|       |
+   13|       |protocol CountriesInteractor {
+   14|       |    func refreshCountriesList() -> AnyPublisher<Void, Error>
+   15|       |    func load(countries: LoadableSubject<LazyList<Country>>, search: String, locale: Locale)
+   16|       |    func load(countryDetails: LoadableSubject<Country.Details>, country: Country)
+   17|       |}
+   18|       |
+   19|       |struct RealCountriesInteractor: CountriesInteractor {
+   20|       |    
+   21|       |    let webRepository: CountriesWebRepository
+   22|       |    let dbRepository: CountriesDBRepository
+   23|       |    let appState: Store<AppState>
+   24|       |    
+   25|     13|    init(webRepository: CountriesWebRepository, dbRepository: CountriesDBRepository, appState: Store<AppState>) {
+   26|     13|        self.webRepository = webRepository
+   27|     13|        self.dbRepository = dbRepository
+   28|     13|        self.appState = appState
+   29|     13|    }
+   30|       |
+   31|      6|    func load(countries: LoadableSubject<LazyList<Country>>, search: String, locale: Locale) {
+   32|      6|        
+   33|      6|        let cancelBag = CancelBag()
+   34|      6|        countries.wrappedValue.setIsLoading(cancelBag: cancelBag)
+   35|      6|        
+   36|      6|        Just<Void>
+   37|      6|            .withErrorType(Error.self)
+   38|      6|            .flatMap { [dbRepository] _ -> AnyPublisher<Bool, Error> in
+   39|      6|                dbRepository.hasLoadedCountries()
+   40|      6|            }
+   41|      6|            .flatMap { hasLoaded -> AnyPublisher<Void, Error> in
+   42|      6|                if hasLoaded {
+   43|      2|                    return Just<Void>.withErrorType(Error.self)
+   44|      4|                } else {
+   45|      4|                    return self.refreshCountriesList()
+   46|      0|                }
+   47|      0|            }
+   48|      4|            .flatMap { [dbRepository] in
+   49|      4|                dbRepository.countries(search: search, locale: locale)
+   50|      4|            }
+   51|      6|            .sinkToLoadable { countries.wrappedValue = $0 }
+   52|      6|            .store(in: cancelBag)
+   53|      6|    }
+   54|       |    
+   55|      4|    func refreshCountriesList() -> AnyPublisher<Void, Error> {
+   56|      4|        return webRepository
+   57|      4|            .loadCountries()
+   58|      4|            .ensureTimeSpan(requestHoldBackTimeInterval)
+   59|      3|            .flatMap { [dbRepository] in
+   60|      3|                dbRepository.store(countries: $0)
+   61|      3|            }
+   62|      4|            .eraseToAnyPublisher()
+   63|      4|    }
+   64|       |
+   65|      5|    func load(countryDetails: LoadableSubject<Country.Details>, country: Country) {
+   66|      5|        
+   67|      5|        let cancelBag = CancelBag()
+   68|      5|        countryDetails.wrappedValue.setIsLoading(cancelBag: cancelBag)
+   69|      5|
+   70|      5|        dbRepository
+   71|      5|            .countryDetails(country: country)
+   72|      5|            .flatMap { details -> AnyPublisher<Country.Details?, Error> in
+   73|      5|                if details != nil {
+   74|      1|                    return Just<Country.Details?>.withErrorType(details, Error.self)
+   75|      4|                } else {
+   76|      4|                    return self.loadAndStoreCountryDetailsFromWeb(country: country)
+   77|      0|                }
+   78|      0|            }
+   79|      5|            .sinkToLoadable { countryDetails.wrappedValue = $0.unwrap() }
+   80|      5|            .store(in: cancelBag)
+   81|      5|    }
+   82|       |    
+   83|      4|    private func loadAndStoreCountryDetailsFromWeb(country: Country) -> AnyPublisher<Country.Details?, Error> {
+   84|      4|        return webRepository
+   85|      4|            .loadCountryDetails(country: country)
+   86|      4|            .ensureTimeSpan(requestHoldBackTimeInterval)
+   87|      3|            .flatMap { [dbRepository] in
+   88|      3|                dbRepository.store(countryDetails: $0, for: country)
+   89|      3|            }
+   90|      4|            .eraseToAnyPublisher()
+   91|      4|    }
+   92|       |    
+   93|      8|    private var requestHoldBackTimeInterval: TimeInterval {
+   94|      8|        return ProcessInfo.processInfo.isRunningTests ? 0 : 0.5
+   95|      8|    }
+   96|       |}
+   97|       |
+   98|       |struct StubCountriesInteractor: CountriesInteractor {
+   99|       |    
+  100|      1|    func refreshCountriesList() -> AnyPublisher<Void, Error> {
+  101|      1|        return Just<Void>.withErrorType(Error.self)
+  102|      1|    }
+  103|       |    
+  104|      1|    func load(countries: LoadableSubject<LazyList<Country>>, search: String, locale: Locale) {
+  105|      1|    }
+  106|       |    
+  107|      1|    func load(countryDetails: LoadableSubject<Country.Details>, country: Country) {
+  108|      1|    }
+  109|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Interactors/ImagesInteractor.swift:
+    1|       |//
+    2|       |//  ImagesInteractor.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 09.11.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Combine
+   10|       |import Foundation
+   11|       |import SwiftUI
+   12|       |
+   13|       |protocol ImagesInteractor {
+   14|       |    func load(image: LoadableSubject<UIImage>, url: URL?)
+   15|       |}
+   16|       |
+   17|       |struct RealImagesInteractor: ImagesInteractor {
+   18|       |    
+   19|       |    let webRepository: ImageWebRepository
+   20|       |    
+   21|      8|    init(webRepository: ImageWebRepository) {
+   22|      8|        self.webRepository = webRepository
+   23|      8|    }
+   24|       |    
+   25|      4|    func load(image: LoadableSubject<UIImage>, url: URL?) {
+   26|      1|        guard let url = url else {
+   27|      1|            image.wrappedValue = .notRequested; return
+   28|      3|        }
+   29|      3|        let cancelBag = CancelBag()
+   30|      3|        image.wrappedValue.setIsLoading(cancelBag: cancelBag)
+   31|      3|        webRepository.load(imageURL: url, width: 300)
+   32|      3|            .sinkToLoadable {
+   33|      3|                image.wrappedValue = $0
+   34|      3|            }
+   35|      3|            .store(in: cancelBag)
+   36|      3|    }
+   37|       |}
+   38|       |
+   39|       |struct StubImagesInteractor: ImagesInteractor {
+   40|      1|    func load(image: LoadableSubject<UIImage>, url: URL?) {
+   41|      1|    }
+   42|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Interactors/UserPermissionsInteractor.swift:
+    1|       |//
+    2|       |//  UserPermissionsInteractor.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 26.04.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Foundation
+   10|       |import UserNotifications
+   11|       |
+   12|       |enum Permission {
+   13|       |    case pushNotifications
+   14|       |}
+   15|       |
+   16|       |extension Permission {
+   17|       |    enum Status: Equatable {
+   18|       |        case unknown
+   19|       |        case notRequested
+   20|       |        case granted
+   21|       |        case denied
+   22|       |    }
+   23|       |}
+   24|       |
+   25|       |protocol UserPermissionsInteractor: AnyObject {
+   26|       |    func resolveStatus(for permission: Permission)
+   27|       |    func request(permission: Permission)
+   28|       |}
+   29|       |
+   30|       |// MARK: - RealUserPermissionsInteractor
+   31|       |
+   32|       |final class RealUserPermissionsInteractor: UserPermissionsInteractor {
+   33|       |    
+   34|       |    private let appState: Store<AppState>
+   35|       |    private let openAppSettings: () -> Void
+   36|       |    
+   37|      8|    init(appState: Store<AppState>, openAppSettings: @escaping () -> Void) {
+   38|      8|        self.appState = appState
+   39|      8|        self.openAppSettings = openAppSettings
+   40|      8|    }
+   41|       |    
+   42|      4|    func resolveStatus(for permission: Permission) {
+   43|      4|        let keyPath = AppState.permissionKeyPath(for: permission)
+   44|      4|        let currentStatus = appState[keyPath]
+   45|      3|        guard currentStatus == .unknown else { return }
+   46|      3|        let onResolve: (Permission.Status) -> Void = { [weak appState] status in
+   47|      3|            appState?[keyPath] = status
+   48|      3|        }
+   49|      3|        switch permission {
+   50|      3|        case .pushNotifications:
+   51|      3|            pushNotificationsPermissionStatus(onResolve)
+   52|      3|        }
+   53|      3|    }
+   54|       |    
+   55|      3|    func request(permission: Permission) {
+   56|      3|        let keyPath = AppState.permissionKeyPath(for: permission)
+   57|      3|        let currentStatus = appState[keyPath]
+   58|      1|        guard currentStatus != .denied else {
+   59|      1|            openAppSettings()
+   60|      1|            return
+   61|      2|        }
+   62|      2|        switch permission {
+   63|      2|        case .pushNotifications:
+   64|      2|            requestPushNotificationsPermission()
+   65|      2|        }
+   66|      2|    }
+   67|       |}
+   68|       |    
+   69|       |// MARK: - Push Notifications
+   70|       |
+   71|       |extension UNAuthorizationStatus {
+   72|      8|    var map: Permission.Status {
+   73|      8|        switch self {
+   74|      1|        case .denied: return .denied
+   75|      4|        case .authorized: return .granted
+   76|      2|        case .notDetermined, .provisional, .ephemeral: return .notRequested
+   77|      1|        @unknown default: return .notRequested
+   78|      8|        }
+   79|      8|    }
+   80|       |}
+   81|       |
+   82|       |private extension RealUserPermissionsInteractor {
+   83|       |    
+   84|      3|    func pushNotificationsPermissionStatus(_ resolve: @escaping (Permission.Status) -> Void) {
+   85|      3|        let center = UNUserNotificationCenter.current()
+   86|      3|        center.getNotificationSettings { settings in
+   87|      3|            DispatchQueue.main.async {
+   88|      3|                resolve(settings.authorizationStatus.map)
+   89|      3|            }
+   90|      3|        }
+   91|      3|    }
+   92|       |    
+   93|      2|    func requestPushNotificationsPermission() {
+   94|      2|        let center = UNUserNotificationCenter.current()
+   95|      2|        center.requestAuthorization(options: [.alert, .sound]) { (isGranted, error) in
+   96|      2|            DispatchQueue.main.async {
+   97|      2|                self.appState[\.permissions.push] = isGranted ? .granted : .denied
+   98|      2|            }
+   99|      2|        }
+  100|      2|    }
+  101|       |}
+  102|       |
+  103|       |// MARK: -
+  104|       |
+  105|       |final class StubUserPermissionsInteractor: UserPermissionsInteractor {
+  106|       |    
+  107|      1|    func resolveStatus(for permission: Permission) {
+  108|      1|    }
+  109|      1|    func request(permission: Permission) {
+  110|      1|    }
+  111|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Models/MockedData.swift:
+    1|       |//
+    2|       |//  MockedModel.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 27.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Foundation
+   10|       |
+   11|       |#if DEBUG
+   12|       |
+   13|       |extension Country {
+   14|       |    static let mockedData: [Country] = [
+   15|       |        Country(name: "United States", translations: [:], population: 125000000,
+   16|       |                flag: URL(string: "https://restcountries.eu/data/usa.svg"), alpha3Code: "USA"),
+   17|       |        Country(name: "Georgia", translations: [:], population: 2340000, flag: nil, alpha3Code: "GEO"),
+   18|       |        Country(name: "Canada", translations: [:], population: 57600000, flag: nil, alpha3Code: "CAN")
+   19|       |    ]
+   20|       |}
+   21|       |
+   22|       |extension Country.Details {
+   23|      1|    static var mockedData: [Country.Details] = {
+   24|      1|        let neighbors = Country.mockedData
+   25|      1|        return [
+   26|      1|            Country.Details(capital: "Sin City", currencies: Country.Currency.mockedData, neighbors: neighbors),
+   27|      1|            Country.Details(capital: "Los Angeles", currencies: Country.Currency.mockedData, neighbors: []),
+   28|      1|            Country.Details(capital: "New York", currencies: [], neighbors: []),
+   29|      1|            Country.Details(capital: "Moscow", currencies: [], neighbors: neighbors)
+   30|      1|        ]
+   31|      1|    }()
+   32|       |}
+   33|       |
+   34|       |extension Country.Currency {
+   35|       |    static let mockedData: [Country.Currency] = [
+   36|       |        Country.Currency(code: "USD", symbol: "$", name: "US Dollar"),
+   37|       |        Country.Currency(code: "EUR", symbol: "€", name: "Euro"),
+   38|       |        Country.Currency(code: "RUB", symbol: "‡", name: "Rouble")
+   39|       |    ]
+   40|       |}
+   41|       |
+   42|       |#endif
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Models/Models+CoreData.swift:
+    1|       |//
+    2|       |//  Models+CoreData.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 12.04.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Foundation
+   10|       |import CoreData
+   11|       |
+   12|       |extension CountryMO: ManagedEntity { }
+   13|       |extension NameTranslationMO: ManagedEntity { }
+   14|       |extension CountryDetailsMO: ManagedEntity { }
+   15|       |extension CurrencyMO: ManagedEntity { }
+   16|       |
+   17|       |extension Locale {
+   18|     20|    static var backendDefault: Locale {
+   19|     20|        return Locale(identifier: "en")
+   20|     20|    }
+   21|       |    
+   22|     40|    var shortIdentifier: String {
+   23|     40|        return String(identifier.prefix(2))
+   24|     40|    }
+   25|       |}
+   26|       |
+   27|       |extension Country.Details {
+   28|       |    
+   29|      2|    init?(managedObject: CountryDetailsMO) {
+   30|      2|        guard let capital = managedObject.capital
+   31|      2|            else { return nil }
+   32|      2|        
+   33|      0|        let currencies = (managedObject.currencies ?? NSSet())
+   34|      2|            .toArray(of: CurrencyMO.self)
+   35|      2|            .compactMap { Country.Currency(managedObject: $0) }
+   36|      2|        
+   37|      0|        let borders = (managedObject.borders ?? NSSet())
+   38|      2|            .toArray(of: CountryMO.self)
+   39|      4|            .compactMap { Country(managedObject: $0) }
+   40|      2|            .sorted(by: { $0.name < $1.name })
+   41|      2|        
+   42|      2|        self.init(capital: capital, currencies: currencies, neighbors: borders)
+   43|      2|    }
+   44|       |}
+   45|       |
+   46|       |extension Country.Details.Intermediate {
+   47|       |    
+   48|       |    @discardableResult
+   49|       |    func store(in context: NSManagedObjectContext,
+   50|      2|               country: CountryMO, borders: [CountryMO]) -> CountryDetailsMO? {
+   51|      2|        guard let details = CountryDetailsMO.insertNew(in: context)
+   52|      2|            else { return nil }
+   53|      2|        details.capital = capital
+   54|      2|        let storedCurrencies = currencies.compactMap { $0.store(in: context) }
+   55|      2|        details.currencies = NSSet(array: storedCurrencies)
+   56|      2|        details.borders = NSSet(array: borders)
+   57|      2|        country.countryDetails = details
+   58|      2|        return details
+   59|      2|    }
+   60|       |}
+   61|       |
+   62|       |extension Country.Currency {
+   63|       |    
+   64|      2|    init?(managedObject: CurrencyMO) {
+   65|      2|        guard let code = managedObject.code,
+   66|      2|            let name = managedObject.name
+   67|      2|            else { return nil }
+   68|      2|        self.init(code: code, symbol: managedObject.symbol, name: name)
+   69|      2|    }
+   70|       |    
+   71|       |    @discardableResult
+   72|      2|    func store(in context: NSManagedObjectContext) -> CurrencyMO? {
+   73|      2|        guard let currency = CurrencyMO.insertNew(in: context)
+   74|      2|            else { return nil }
+   75|      2|        currency.code = code
+   76|      2|        currency.name = name
+   77|      2|        currency.symbol = symbol
+   78|      2|        return currency
+   79|      2|    }
+   80|       |}
+   81|       |
+   82|       |extension Country {
+   83|       |    
+   84|       |    @discardableResult
+   85|     24|    func store(in context: NSManagedObjectContext) -> CountryMO? {
+   86|     24|        guard let country = CountryMO.insertNew(in: context)
+   87|     24|            else { return nil }
+   88|     24|        country.name = name
+   89|     24|        country.alpha3code = alpha3Code
+   90|     24|        country.population = Int32(population)
+   91|     24|        country.flagURL = flag?.absoluteString
+   92|     24|        let translations = self.translations
+   93|     20|            .compactMap { (locale, name) -> NameTranslationMO? in
+   94|     20|                guard let name = name,
+   95|     20|                    let translation = NameTranslationMO.insertNew(in: context)
+   96|     20|                else { return nil }
+   97|     20|                translation.name = name
+   98|     20|                translation.locale = locale
+   99|     20|                return translation
+  100|     20|            }
+  101|     24|        country.nameTranslations = NSSet(array: translations)
+  102|     24|        return country
+  103|     24|    }
+  104|       |    
+  105|     11|    init?(managedObject: CountryMO) {
+  106|     11|        guard let nameTranslations = managedObject.nameTranslations
+  107|     11|            else { return nil }
+  108|     11|        let translations: [String: String?] = nameTranslations
+  109|     11|            .toArray(of: NameTranslationMO.self)
+  110|     12|            .reduce([:], { (dict, record) -> [String: String?] in
+  111|     12|                guard let locale = record.locale, let name = record.name
+  112|     12|                    else { return dict }
+  113|     12|                var dict = dict
+  114|     12|                dict[locale] = name
+  115|     12|                return dict
+  116|     12|            })
+  117|     11|        guard let name = managedObject.name,
+  118|     11|            let alpha3code = managedObject.alpha3code
+  119|     11|            else { return nil }
+  120|     11|        
+  121|     11|        self.init(name: name, translations: translations,
+  122|     11|                  population: Int(managedObject.population),
+  123|      6|                  flag: managedObject.flagURL.flatMap { URL(string: $0) },
+  124|     11|                  alpha3Code: alpha3code)
+  125|     11|    }
+  126|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Models/Models.swift:
+    1|       |//
+    2|       |//  Models.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 23.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Foundation
+   10|       |
+   11|       |struct Country: Codable, Equatable {
+   12|       |    let name: String
+   13|       |    let translations: [String: String?]
+   14|       |    let population: Int
+   15|       |    let flag: URL?
+   16|       |    let alpha3Code: Code
+   17|       |    
+   18|       |    typealias Code = String
+   19|       |}
+   20|       |
+   21|       |extension Country {
+   22|       |    struct Details: Codable, Equatable {
+   23|       |        let capital: String
+   24|       |        let currencies: [Currency]
+   25|       |        let neighbors: [Country]
+   26|       |    }
+   27|       |}
+   28|       |
+   29|       |extension Country.Details {
+   30|       |    struct Intermediate: Codable, Equatable {
+   31|       |        let capital: String
+   32|       |        let currencies: [Country.Currency]
+   33|       |        let borders: [String]
+   34|       |    }
+   35|       |}
+   36|       |
+   37|       |extension Country {
+   38|       |    struct Currency: Codable, Equatable {
+   39|       |        let code: String
+   40|       |        let symbol: String?
+   41|       |        let name: String
+   42|       |    }
+   43|       |}
+   44|       |
+   45|       |// MARK: - Helpers
+   46|       |
+   47|       |extension Country: Identifiable {
+   48|    177|    var id: String { alpha3Code }
+   49|       |}
+   50|       |
+   51|       |extension Country.Currency: Identifiable {
+   52|    111|    var id: String { code }
+   53|       |}
+   54|       |
+   55|       |extension Country {
+   56|     35|    func name(locale: Locale) -> String {
+   57|     35|        let localeId = locale.shortIdentifier
+   58|      1|        if let value = translations[localeId], let localizedName = value {
+   59|      1|            return localizedName
+   60|     34|        }
+   61|     34|        return name
+   62|     35|    }
+   63|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Persistence/CoreDataHelpers.swift:
+    1|       |//
+    2|       |//  CoreDataHelpers.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 12.04.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import CoreData
+   10|       |import Combine
+   11|       |
+   12|       |// MARK: - ManagedEntity
+   13|       |
+   14|       |protocol ManagedEntity: NSFetchRequestResult { }
+   15|       |
+   16|       |extension ManagedEntity where Self: NSManagedObject {
+   17|       |    
+   18|     61|    static var entityName: String {
+   19|     61|        let nameMO = String(describing: Self.self)
+   20|     61|        let suffixIndex = nameMO.index(nameMO.endIndex, offsetBy: -2)
+   21|     61|        return String(nameMO[..<suffixIndex])
+   22|     61|    }
+   23|       |    
+   24|     48|    static func insertNew(in context: NSManagedObjectContext) -> Self? {
+   25|     48|        return NSEntityDescription
+   26|     48|            .insertNewObject(forEntityName: entityName, into: context) as? Self
+   27|     48|    }
+   28|       |    
+   29|     13|    static func newFetchRequest() -> NSFetchRequest<Self> {
+   30|     13|        return .init(entityName: entityName)
+   31|     13|    }
+   32|       |}
+   33|       |
+   34|       |// MARK: - NSManagedObjectContext
+   35|       |
+   36|       |extension NSManagedObjectContext {
+   37|       |    
+   38|      7|    func configureAsReadOnlyContext() {
+   39|      7|        automaticallyMergesChangesFromParent = true
+   40|      7|        mergePolicy = NSRollbackMergePolicy
+   41|      7|        undoManager = nil
+   42|      7|        shouldDeleteInaccessibleFaults = true
+   43|      7|    }
+   44|       |    
+   45|      3|    func configureAsUpdateContext() {
+   46|      3|        mergePolicy = NSOverwriteMergePolicy
+   47|      3|        undoManager = nil
+   48|      3|    }
+   49|       |}
+   50|       |
+   51|       |// MARK: - Misc
+   52|       |
+   53|       |extension NSSet {
+   54|     15|    func toArray<T>(of type: T.Type) -> [T] {
+   55|     18|        allObjects.compactMap { $0 as? T }
+   56|     15|    }
+   57|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Persistence/CoreDataStack.swift:
+    1|       |//
+    2|       |//  CoreDataStack.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 12.04.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import CoreData
+   10|       |import Combine
+   11|       |
+   12|       |protocol PersistentStore {
+   13|       |    typealias DBOperation<Result> = (NSManagedObjectContext) throws -> Result
+   14|       |    
+   15|       |    func count<T>(_ fetchRequest: NSFetchRequest<T>) -> AnyPublisher<Int, Error>
+   16|       |    func fetch<T, V>(_ fetchRequest: NSFetchRequest<T>,
+   17|       |                     map: @escaping (T) throws -> V?) -> AnyPublisher<LazyList<V>, Error>
+   18|       |    func update<Result>(_ operation: @escaping DBOperation<Result>) -> AnyPublisher<Result, Error>
+   19|       |}
+   20|       |
+   21|       |struct CoreDataStack: PersistentStore {
+   22|       |    
+   23|       |    private let container: NSPersistentContainer
+   24|      8|    private let isStoreLoaded = CurrentValueSubject<Bool, Error>(false)
+   25|      8|    private let bgQueue = DispatchQueue(label: "coredata")
+   26|       |    
+   27|       |    init(directory: FileManager.SearchPathDirectory = .documentDirectory,
+   28|       |         domainMask: FileManager.SearchPathDomainMask = .userDomainMask,
+   29|      8|         version vNumber: UInt) {
+   30|      8|        let version = Version(vNumber)
+   31|      8|        container = NSPersistentContainer(name: version.modelName)
+   32|      8|        if let url = version.dbFileURL(directory, domainMask) {
+   33|      8|            let store = NSPersistentStoreDescription(url: url)
+   34|      8|            container.persistentStoreDescriptions = [store]
+   35|      8|        }
+   36|      8|        bgQueue.async { [weak isStoreLoaded, weak container] in
+   37|      8|            container?.loadPersistentStores { (storeDescription, error) in
+   38|      8|                DispatchQueue.main.async {
+   39|      1|                    if let error = error {
+   40|      1|                        isStoreLoaded?.send(completion: .failure(error))
+   41|      8|                    } else {
+   42|      7|                        container?.viewContext.configureAsReadOnlyContext()
+   43|      7|                        isStoreLoaded?.value = true
+   44|      8|                    }
+   45|      8|                }
+   46|      8|            }
+   47|      8|        }
+   48|      8|    }
+   49|       |    
+   50|      2|    func count<T>(_ fetchRequest: NSFetchRequest<T>) -> AnyPublisher<Int, Error> {
+   51|      2|        return onStoreIsReady
+   52|      2|            .flatMap { [weak container] in
+   53|      2|                Future<Int, Error> { promise in
+   54|      2|                    do {
+   55|      0|                        let count = try container?.viewContext.count(for: fetchRequest) ?? 0
+   56|      2|                        promise(.success(count))
+   57|      0|                    } catch {
+   58|      0|                        promise(.failure(error))
+   59|      2|                    }
+   60|      2|                }
+   61|      2|            }
+   62|      2|            .eraseToAnyPublisher()
+   63|      2|    }
+   64|       |    
+   65|       |    func fetch<T, V>(_ fetchRequest: NSFetchRequest<T>,
+   66|      3|                     map: @escaping (T) throws -> V?) -> AnyPublisher<LazyList<V>, Error> {
+   67|      3|        assert(Thread.isMainThread)
+   68|      3|        let fetch = Future<LazyList<V>, Error> { [weak container] promise in
+   69|      3|            guard let context = container?.viewContext else { return }
+   70|      3|            context.performAndWait {
+   71|      3|                do {
+   72|      3|                    let managedObjects = try context.fetch(fetchRequest)
+   73|      3|                    let results = LazyList<V>(count: managedObjects.count,
+   74|      1|                                              useCache: true) { [weak context] in
+   75|      1|                        let object = managedObjects[$0]
+   76|      1|                        let mapped = try map(object)
+   77|      1|                        if let mo = object as? NSManagedObject {
+   78|      1|                            // Turning object into a fault
+   79|      1|                            context?.refresh(mo, mergeChanges: false)
+   80|      1|                        }
+   81|      1|                        return mapped
+   82|      1|                    }
+   83|      3|                    promise(.success(results))
+   84|      0|                } catch {
+   85|      0|                    promise(.failure(error))
+   86|      3|                }
+   87|      3|            }
+   88|      3|        }
+   89|      3|        return onStoreIsReady
+   90|      2|            .flatMap { fetch }
+   91|      3|            .eraseToAnyPublisher()
+   92|      3|    }
+   93|       |    
+   94|      3|    func update<Result>(_ operation: @escaping DBOperation<Result>) -> AnyPublisher<Result, Error> {
+   95|      3|        let update = Future<Result, Error> { [weak bgQueue, weak container] promise in
+   96|      3|            bgQueue?.async {
+   97|      3|                guard let context = container?.newBackgroundContext() else { return }
+   98|      3|                context.configureAsUpdateContext()
+   99|      3|                context.performAndWait {
+  100|      3|                    do {
+  101|      3|                        let result = try operation(context)
+  102|      3|                        if context.hasChanges {
+  103|      2|                            try context.save()
+  104|      3|                        }
+  105|      3|                        context.reset()
+  106|      3|                        promise(.success(result))
+  107|      1|                    } catch {
+  108|      1|                        context.reset()
+  109|      1|                        promise(.failure(error))
+  110|      3|                    }
+  111|      3|                }
+  112|      3|            }
+  113|      3|        }
+  114|      3|        return onStoreIsReady
+  115|      3|            .flatMap { update }
+  116|      3|//          .subscribe(on: bgQueue) // Does not work as stated in the docs. Using `bgQueue.async`
+  117|      3|            .receive(on: DispatchQueue.main)
+  118|      3|            .eraseToAnyPublisher()
+  119|      3|    }
+  120|       |    
+  121|      8|    private var onStoreIsReady: AnyPublisher<Void, Error> {
+  122|      8|        return isStoreLoaded
+  123|     13|            .filter { $0 }
+  124|      7|            .map { _ in }
+  125|      8|            .eraseToAnyPublisher()
+  126|      8|    }
+  127|       |}
+  128|       |
+  129|       |// MARK: - Versioning
+  130|       |
+  131|       |extension CoreDataStack.Version {
+  132|      8|    static var actual: UInt { 1 }
+  133|       |}
+  134|       |
+  135|       |extension CoreDataStack {
+  136|       |    struct Version {
+  137|       |        private let number: UInt
+  138|       |        
+  139|     27|        init(_ number: UInt) {
+  140|     27|            self.number = number
+  141|     27|        }
+  142|       |        
+  143|     15|        var modelName: String {
+  144|     15|            return "db_model_v1"
+  145|     15|        }
+  146|       |        
+  147|       |        func dbFileURL(_ directory: FileManager.SearchPathDirectory,
+  148|     48|                       _ domainMask: FileManager.SearchPathDomainMask) -> URL? {
+  149|     48|            return FileManager.default
+  150|     48|                .urls(for: directory, in: domainMask).first?
+  151|     48|                .appendingPathComponent(subpathToDB)
+  152|     48|        }
+  153|       |        
+  154|     48|        private var subpathToDB: String {
+  155|     48|            return "db.sql"
+  156|     48|        }
+  157|       |    }
+  158|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Repositories/CountriesDBRepository.swift:
+    1|       |//
+    2|       |//  CountriesDBRepository.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 13.04.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import CoreData
+   10|       |import Combine
+   11|       |
+   12|       |protocol CountriesDBRepository {
+   13|       |    func hasLoadedCountries() -> AnyPublisher<Bool, Error>
+   14|       |    
+   15|       |    func store(countries: [Country]) -> AnyPublisher<Void, Error>
+   16|       |    func countries(search: String, locale: Locale) -> AnyPublisher<LazyList<Country>, Error>
+   17|       |    
+   18|       |    func store(countryDetails: Country.Details.Intermediate,
+   19|       |               for country: Country) -> AnyPublisher<Country.Details?, Error>
+   20|       |    func countryDetails(country: Country) -> AnyPublisher<Country.Details?, Error>
+   21|       |}
+   22|       |
+   23|       |struct RealCountriesDBRepository: CountriesDBRepository {
+   24|       |    
+   25|       |    let persistentStore: PersistentStore
+   26|       |    
+   27|      2|    func hasLoadedCountries() -> AnyPublisher<Bool, Error> {
+   28|      2|        let fetchRequest = CountryMO.justOneCountry()
+   29|      2|        return persistentStore
+   30|      2|            .count(fetchRequest)
+   31|      2|            .map { $0 > 0 }
+   32|      2|            .eraseToAnyPublisher()
+   33|      2|    }
+   34|       |    
+   35|      1|    func store(countries: [Country]) -> AnyPublisher<Void, Error> {
+   36|      1|        return persistentStore
+   37|      1|            .update { context in
+   38|      3|                countries.forEach {
+   39|      3|                    $0.store(in: context)
+   40|      3|                }
+   41|      1|            }
+   42|      1|    }
+   43|       |    
+   44|      3|    func countries(search: String, locale: Locale) -> AnyPublisher<LazyList<Country>, Error> {
+   45|      3|        let fetchRequest = CountryMO.countries(search: search, locale: locale)
+   46|      3|        return persistentStore
+   47|      6|            .fetch(fetchRequest) {
+   48|      6|                Country(managedObject: $0)
+   49|      6|            }
+   50|      3|            .eraseToAnyPublisher()
+   51|      3|    }
+   52|       |    
+   53|       |    func store(countryDetails: Country.Details.Intermediate,
+   54|      1|               for country: Country) -> AnyPublisher<Country.Details?, Error> {
+   55|      1|        return persistentStore
+   56|      1|            .update { context in
+   57|      1|                let parentRequest = CountryMO.countries(alpha3codes: [country.alpha3Code])
+   58|      1|                guard let parent = try context.fetch(parentRequest).first
+   59|      1|                    else { return nil }
+   60|      1|                let neighbors = CountryMO.countries(alpha3codes: countryDetails.borders)
+   61|      1|                let borders = try context.fetch(neighbors)
+   62|      1|                let details = countryDetails.store(in: context, country: parent, borders: borders)
+   63|      1|                return details.flatMap { Country.Details(managedObject: $0) }
+   64|      1|            }
+   65|      1|    }
+   66|       |    
+   67|      1|    func countryDetails(country: Country) -> AnyPublisher<Country.Details?, Error> {
+   68|      1|        let fetchRequest = CountryDetailsMO.details(country: country)
+   69|      1|        return persistentStore
+   70|      1|            .fetch(fetchRequest) {
+   71|      1|                Country.Details(managedObject: $0)
+   72|      1|            }
+   73|      1|            .map { $0.first }
+   74|      1|            .eraseToAnyPublisher()
+   75|      1|    }
+   76|       |}
+   77|       |
+   78|       |// MARK: - Fetch Requests
+   79|       |
+   80|       |extension CountryMO {
+   81|       |    
+   82|      2|    static func justOneCountry() -> NSFetchRequest<CountryMO> {
+   83|      2|        let request = newFetchRequest()
+   84|      2|        request.predicate = NSPredicate(format: "alpha3code == %@", "USA")
+   85|      2|        request.fetchLimit = 1
+   86|      2|        return request
+   87|      2|    }
+   88|       |    
+   89|      3|    static func countries(search: String, locale: Locale) -> NSFetchRequest<CountryMO> {
+   90|      3|        let request = newFetchRequest()
+   91|      3|        if search.count == 0 {
+   92|      1|            request.predicate = NSPredicate(value: true)
+   93|      3|        } else {
+   94|      2|            let localeId = locale.shortIdentifier
+   95|      2|            let nameMatch = NSPredicate(format: "name CONTAINS[cd] %@", search)
+   96|      2|            let localizedMatch = NSPredicate(format:
+   97|      2|            "(SUBQUERY(nameTranslations,$t,$t.locale == %@ AND $t.name CONTAINS[cd] %@).@count > 0)", localeId, search)
+   98|      2|            request.predicate = NSCompoundPredicate(type: .or, subpredicates: [nameMatch, localizedMatch])
+   99|      3|        }
+  100|      3|        request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
+  101|      3|        request.fetchBatchSize = 10
+  102|      3|        return request
+  103|      3|    }
+  104|       |    
+  105|      2|    static func countries(alpha3codes: [String]) -> NSFetchRequest<CountryMO> {
+  106|      2|        let request = newFetchRequest()
+  107|      2|        request.predicate = NSPredicate(format: "alpha3code in %@", alpha3codes)
+  108|      2|        request.fetchLimit = alpha3codes.count
+  109|      2|        return request
+  110|      2|    }
+  111|       |}
+  112|       |
+  113|       |extension CountryDetailsMO {
+  114|      1|    static func details(country: Country) -> NSFetchRequest<CountryDetailsMO> {
+  115|      1|        let request = newFetchRequest()
+  116|      1|        request.predicate = NSPredicate(format: "country.alpha3code == %@", country.alpha3Code)
+  117|      1|        request.fetchLimit = 1
+  118|      1|        return request
+  119|      1|    }
+  120|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Repositories/CountriesWebRepository.swift:
+    1|       |//
+    2|       |//  CountriesWebRepository.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 29.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Combine
+   10|       |import Foundation
+   11|       |
+   12|       |protocol CountriesWebRepository: WebRepository {
+   13|       |    func loadCountries() -> AnyPublisher<[Country], Error>
+   14|       |    func loadCountryDetails(country: Country) -> AnyPublisher<Country.Details.Intermediate, Error>
+   15|       |}
+   16|       |
+   17|       |struct RealCountriesWebRepository: CountriesWebRepository {
+   18|       |    
+   19|       |    let session: URLSession
+   20|       |    let baseURL: String
+   21|      5|    let bgQueue = DispatchQueue(label: "bg_parse_queue")
+   22|       |    
+   23|      5|    init(session: URLSession, baseURL: String) {
+   24|      5|        self.session = session
+   25|      5|        self.baseURL = baseURL
+   26|      5|    }
+   27|       |    
+   28|      1|    func loadCountries() -> AnyPublisher<[Country], Error> {
+   29|      1|        return call(endpoint: API.allCountries)
+   30|      1|    }
+   31|       |
+   32|      2|    func loadCountryDetails(country: Country) -> AnyPublisher<Country.Details.Intermediate, Error> {
+   33|      2|        let request: AnyPublisher<[Country.Details.Intermediate], Error> = call(endpoint: API.countryDetails(country))
+   34|      2|        return request
+   35|      2|            .tryMap { array -> Country.Details.Intermediate in
+   36|      2|                guard let details = array.first
+   37|      1|                    else { throw APIError.unexpectedResponse }
+   38|      1|                return details
+   39|      2|            }
+   40|      2|            .eraseToAnyPublisher()
+   41|      2|    }
+   42|       |}
+   43|       |
+   44|       |// MARK: - Endpoints
+   45|       |
+   46|       |extension RealCountriesWebRepository {
+   47|       |    enum API {
+   48|       |        case allCountries
+   49|       |        case countryDetails(Country)
+   50|       |    }
+   51|       |}
+   52|       |
+   53|       |extension RealCountriesWebRepository.API: APICall {
+   54|      7|    var path: String {
+   55|      7|        switch self {
+   56|      2|        case .allCountries:
+   57|      2|            return "/all"
+   58|      5|        case let .countryDetails(country):
+   59|      5|            let encodedName = country.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+   60|      1|            return "/name/\(encodedName ?? country.name)"
+   61|      7|        }
+   62|      7|    }
+   63|      6|    var method: String {
+   64|      6|        switch self {
+   65|      6|        case .allCountries, .countryDetails:
+   66|      6|            return "GET"
+   67|      6|        }
+   68|      6|    }
+   69|      6|    var headers: [String: String]? {
+   70|      6|        return ["Accept": "application/json"]
+   71|      6|    }
+   72|      6|    func body() throws -> Data? {
+   73|      6|        return nil
+   74|      6|    }
+   75|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Repositories/ImageWebRepository.swift:
+    1|       |//
+    2|       |//  ImageWebRepository.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 09.11.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Combine
+   10|       |import UIKit
+   11|       |
+   12|       |protocol ImageWebRepository: WebRepository {
+   13|       |    func load(imageURL: URL, width: Int) -> AnyPublisher<UIImage, Error>
+   14|       |}
+   15|       |
+   16|       |struct RealImageWebRepository: ImageWebRepository {
+   17|       |    
+   18|       |    let session: URLSession
+   19|       |    let baseURL: String
+   20|      7|    let bgQueue = DispatchQueue(label: "bg_parse_queue")
+   21|       |    
+   22|      7|    init(session: URLSession, baseURL: String) {
+   23|      7|        self.session = session
+   24|      7|        self.baseURL = baseURL
+   25|      7|    }
+   26|       |    
+   27|      6|    func load(imageURL: URL, width: Int) -> AnyPublisher<UIImage, Error> {
+   28|      1|        guard (imageURL.absoluteString as NSString).pathExtension.lowercased() == "svg" else {
+   29|      1|            return download(rawImageURL: imageURL)
+   30|      1|            .subscribe(on: bgQueue)
+   31|      1|            .receive(on: DispatchQueue.main)
+   32|      1|            .extractUnderlyingError()
+   33|      1|            .eraseToAnyPublisher()
+   34|      5|        }
+   35|      5|        return Just<Void>.withErrorType(Error.self)
+   36|      5|            .flatMap { self.importImage(originalURL: imageURL) }
+   37|      3|            .flatMap { self.exportImage(imported: $0, width: width) }
+   38|      2|            .flatMap { self.download(exported: $0) }
+   39|      4|            .catch { self.removeCachedResponses(error: $0) }
+   40|      5|            .subscribe(on: bgQueue)
+   41|      5|            .receive(on: DispatchQueue.main)
+   42|      5|            .extractUnderlyingError()
+   43|      5|            .eraseToAnyPublisher()
+   44|      6|    }
+   45|       |    
+   46|      5|    private func importImage(originalURL: URL) -> AnyPublisher<ImageConversion.Import, Error> {
+   47|      5|        guard let conversionURL = URL(string:
+   48|      0|            baseURL + "/svg-to-png?url=" + originalURL.absoluteString) else {
+   49|      0|            return Fail<ImageConversion.Import, Error>(error: APIError.invalidURL).eraseToAnyPublisher()
+   50|      5|        }
+   51|      5|        var urlRequest = URLRequest(url: conversionURL)
+   52|      5|        urlRequest.httpMethod = "GET"
+   53|      5|        return session.dataTaskPublisher(for: urlRequest)
+   54|      5|            .tryMap { try ImageConversion.Import(data: $0.data, urlRequest: urlRequest) }
+   55|      5|            .eraseToAnyPublisher()
+   56|      5|    }
+   57|       |    
+   58|       |    private func exportImage(imported: ImageConversion.Import,
+   59|      3|                             width: Int) -> AnyPublisher<ImageConversion.Export, Error> {
+   60|      0|        guard let conversionURL = URL(string: imported.urlString + "?ajax=true") else {
+   61|      0|            return Fail<ImageConversion.Export, Error>(
+   62|      0|                error: APIError.imageProcessing([imported.urlRequest]))
+   63|      0|                .eraseToAnyPublisher()
+   64|      3|        }
+   65|      3|        var urlRequest = URLRequest(url: conversionURL)
+   66|      3|        urlRequest.httpMethod = "POST"
+   67|      3|        let body: [String: Any] = [
+   68|      3|            "file": (imported.urlString as NSString).lastPathComponent,
+   69|      3|            "token": imported.ajaxToken,
+   70|      3|            "width": width
+   71|      3|        ]
+   72|      9|        let bodyString = body.map { $0.key + "=" + "\($0.value)" }.joined(separator: "&")
+   73|      3|        urlRequest.httpBody = bodyString.data(using: .utf8)
+   74|      3|        let urlRequests = [imported.urlRequest, urlRequest]
+   75|      3|        return session.dataTaskPublisher(for: urlRequest)
+   76|      3|            .tryMap { try ImageConversion.Export(data: $0.data, urlRequests: urlRequests) }
+   77|      3|            .eraseToAnyPublisher()
+   78|      3|    }
+   79|       |    
+   80|      2|    private func download(exported: ImageConversion.Export) -> AnyPublisher<UIImage, Error> {
+   81|      2|        download(rawImageURL: exported.imageURL, requests: exported.urlRequests)
+   82|      2|    }
+   83|       |    
+   84|      3|    private func download(rawImageURL: URL, requests: [URLRequest] = []) -> AnyPublisher<UIImage, Error> {
+   85|      3|        let urlRequest = URLRequest(url: rawImageURL)
+   86|      3|        return session.dataTaskPublisher(for: urlRequest)
+   87|      3|            .tryMap { (data, response) in
+   88|      3|                guard let image = UIImage(data: data)
+   89|      2|                    else { throw APIError.imageProcessing(requests + [urlRequest]) }
+   90|      2|                return image
+   91|      3|            }
+   92|      3|            .eraseToAnyPublisher()
+   93|      3|    }
+   94|       |    
+   95|      4|    private func removeCachedResponses(error: Error) -> AnyPublisher<UIImage, Error> {
+   96|      4|        if let apiError = error as? APIError,
+   97|      4|            case let .imageProcessing(urlRequests) = apiError,
+   98|      4|            let cache = session.configuration.urlCache {
+   99|     11|            urlRequests.forEach(cache.removeCachedResponse)
+  ------------------
+  | $s16CountriesSwiftUI22RealImageWebRepositoryV21removeCachedResponses33_A8BBD4889E2DD69B84E35F96AF47BB10LL5error7Combine12AnyPublisherVySo7UIImageCs5Error_pGsAL_p_tFy10Foundation10URLRequestVcSo10NSURLCacheCcfu_:
+  |   99|      4|            urlRequests.forEach(cache.removeCachedResponse)
+  ------------------
+  | $s16CountriesSwiftUI22RealImageWebRepositoryV21removeCachedResponses33_A8BBD4889E2DD69B84E35F96AF47BB10LL5error7Combine12AnyPublisherVySo7UIImageCs5Error_pGsAL_p_tFy10Foundation10URLRequestVcSo10NSURLCacheCcfu_yAPcfu0_:
+  |   99|      7|            urlRequests.forEach(cache.removeCachedResponse)
+  ------------------
+  100|      4|        }
+  101|      4|        return Fail(error: error).eraseToAnyPublisher()
+  102|      4|    }
+  103|       |}
+  104|       |
+  105|       |private struct ImageConversion { }
+  106|       |
+  107|       |extension ImageConversion {
+  108|       |    struct Import {
+  109|       |        
+  110|       |        let urlString: String
+  111|       |        let ajaxToken: String
+  112|       |        let urlRequest: URLRequest
+  113|       |        
+  114|      5|        init(data: Data?, urlRequest: URLRequest) throws {
+  115|      5|            guard let data = data, let string = String(data: data, encoding: .utf8),
+  116|      5|                let elementWithURL = string.firstMatch(pattern: #"<form class="form ajax-form".*\.svg">"#),
+  117|      5|                let conversionURL = elementWithURL.firstMatch(pattern: #"https.*\.svg"#),
+  118|      5|                let ajaxTokenElement = string.firstMatch(pattern: #"name=\"file\"><input .*name=\"token\".*>"#),
+  119|      5|                let dirtyToken = ajaxTokenElement.firstMatch(pattern: #"value="([a-z]|[0-9])*"#)
+  120|      3|                else { throw APIError.imageProcessing([urlRequest]) }
+  121|      3|            self.urlString = conversionURL
+  122|      3|            self.ajaxToken = String(dirtyToken.suffix(from: dirtyToken.index(dirtyToken.startIndex, offsetBy: 7)))
+  123|      3|            self.urlRequest = urlRequest
+  124|      3|        }
+  125|       |    }
+  126|       |}
+  127|       |
+  128|       |extension ImageConversion {
+  129|       |    struct Export {
+  130|       |        
+  131|       |        let imageURL: URL
+  132|       |        let urlRequests: [URLRequest]
+  133|       |
+  134|      3|        init(data: Data?, urlRequests: [URLRequest]) throws {
+  135|      3|            guard let data = data, let string = String(data: data, encoding: .utf8),
+  136|      3|                let element = string.firstMatch(pattern: #"src=.*style="width"#),
+  137|      3|                let imageURL = element.firstMatch(pattern: #"\/\/.*\.png"#),
+  138|      3|                let url = URL(string: "https:" + imageURL)
+  139|      2|                else { throw APIError.imageProcessing(urlRequests) }
+  140|      2|            self.imageURL = url
+  141|      2|            self.urlRequests = urlRequests
+  142|      2|        }
+  143|       |    }
+  144|       |}
+  145|       |
+  146|       |private extension String {
+  147|     21|    func firstMatch(pattern: String) -> String? {
+  148|     21|        guard let regex = try? NSRegularExpression(pattern: pattern, options: []),
+  149|     21|            let matchResult = regex.firstMatch(in: self, options: [], range: NSRange(location: 0, length: count)),
+  150|     18|            let range = matchResult.ranges.first(where: { $0.location != NSNotFound })
+  151|     18|            else { return nil }
+  152|     18|        return (self as NSString).substring(with: range)
+  153|     21|    }
+  154|       |}
+  155|       |
+  156|       |extension NSTextCheckingResult {
+  157|       |    struct Iterator: IteratorProtocol {
+  158|       |        typealias Element = NSRange
+  159|       |        
+  160|       |        private var index: Int = 0
+  161|       |        private let collection: NSTextCheckingResult
+  162|       |        
+  163|     18|        init(collection: NSTextCheckingResult) {
+  164|     18|            self.collection = collection
+  165|     18|        }
+  166|       |        
+  167|     18|        mutating func next() -> NSRange? {
+  168|     18|            defer { index += 1 }
+  169|     18|            return index < collection.numberOfRanges ? collection.range(at: index) : nil
+  170|     18|        }
+  171|       |    }
+  172|       |}
+  173|       |
+  174|       |extension NSTextCheckingResult {
+  175|     18|    var ranges: IteratorSequence<NSTextCheckingResult.Iterator> {
+  176|     18|        return .init(.init(collection: self))
+  177|     18|    }
+  178|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Repositories/PushTokenWebRepository.swift:
+    1|       |//
+    2|       |//  PushTokenWebRepository.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 26.04.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Combine
+   10|       |import Foundation
+   11|       |
+   12|       |protocol PushTokenWebRepository: WebRepository {
+   13|       |    func register(devicePushToken: Data) -> AnyPublisher<Void, Error>
+   14|       |}
+   15|       |
+   16|       |struct RealPushTokenWebRepository: PushTokenWebRepository {
+   17|       |    
+   18|       |    let session: URLSession
+   19|       |    let baseURL: String
+   20|      2|    let bgQueue = DispatchQueue(label: "bg_parse_queue")
+   21|       |    
+   22|      2|    init(session: URLSession, baseURL: String) {
+   23|      2|        self.session = session
+   24|      2|        self.baseURL = baseURL
+   25|      2|    }
+   26|       |    
+   27|      1|    func register(devicePushToken: Data) -> AnyPublisher<Void, Error> {
+   28|      1|        // upload the push token to your server
+   29|      1|        return Just<Void>.withErrorType(Error.self)
+   30|      1|    }
+   31|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/System/AppDelegate.swift:
+    1|       |//
+    2|       |//  AppDelegate.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 23.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import UIKit
+   10|       |import Combine
+   11|       |
+   12|       |typealias NotificationPayload = [AnyHashable: Any]
+   13|       |typealias FetchCompletion = (UIBackgroundFetchResult) -> Void
+   14|       |
+   15|       |@UIApplicationMain
+   16|       |final class AppDelegate: UIResponder, UIApplicationDelegate {
+   17|       |    
+   18|      1|    lazy var systemEventsHandler: SystemEventsHandler? = {
+   19|      1|        self.systemEventsHandler(UIApplication.shared)
+   20|      1|    }()
+   21|       |
+   22|       |    func application(_ application: UIApplication, didFinishLaunchingWithOptions
+   23|      2|        launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+   24|      2|        return true
+   25|      2|    }
+   26|       |    
+   27|      1|    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+   28|      1|        systemEventsHandler?.handlePushRegistration(result: .success(deviceToken))
+   29|      1|    }
+   30|       |    
+   31|      1|    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+   32|      1|        systemEventsHandler?.handlePushRegistration(result: .failure(error))
+   33|      1|    }
+   34|       |    
+   35|       |    func application(_ application: UIApplication,
+   36|       |                     didReceiveRemoteNotification userInfo: NotificationPayload,
+   37|      1|                     fetchCompletionHandler completionHandler: @escaping FetchCompletion) {
+   38|      1|        systemEventsHandler?
+   39|      1|            .appDidReceiveRemoteNotification(payload: userInfo, fetchCompletion: completionHandler)
+   40|      1|    }
+   41|       |    
+   42|      1|    private func systemEventsHandler(_ application: UIApplication) -> SystemEventsHandler? {
+   43|      1|        return sceneDelegate(application)?.systemEventsHandler
+   44|      1|    }
+   45|       |    
+   46|      1|    private func sceneDelegate(_ application: UIApplication) -> SceneDelegate? {
+   47|      1|        return application.windows
+   48|      1|            .compactMap({ $0.windowScene?.delegate as? SceneDelegate })
+   49|      1|            .first
+   50|      1|    }
+   51|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/System/AppEnvironment.swift:
+    1|       |//
+    2|       |//  AppEnvironment.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 09.11.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import UIKit
+   10|       |import Combine
+   11|       |
+   12|       |struct AppEnvironment {
+   13|       |    let container: DIContainer
+   14|       |    let systemEventsHandler: SystemEventsHandler
+   15|       |}
+   16|       |
+   17|       |extension AppEnvironment {
+   18|       |    
+   19|      1|    static func bootstrap() -> AppEnvironment {
+   20|      1|        let appState = Store<AppState>(AppState())
+   21|      1|        /*
+   22|      1|         To see the deep linking in action:
+   23|      1|         
+   24|      1|         1. Launch the app in iOS 13.4 simulator (or newer)
+   25|      1|         2. Subscribe on Push Notifications with "Allow Push" button
+   26|      1|         3. Minimize the app
+   27|      1|         4. Drag & drop "push_with_deeplink.apns" into the Simulator window
+   28|      1|         5. Tap on the push notification
+   29|      1|         
+   30|      1|         Alternatively, just copy the code below before the "return" and launch:
+   31|      1|         
+   32|      1|            DispatchQueue.main.async {
+   33|      1|                deepLinksHandler.open(deepLink: .showCountryFlag(alpha3Code: "AFG"))
+   34|      1|            }
+   35|      1|        */
+   36|      1|        let session = configuredURLSession()
+   37|      1|        let webRepositories = configuredWebRepositories(session: session)
+   38|      1|        let dbRepositories = configuredDBRepositories(appState: appState)
+   39|      1|        let interactors = configuredInteractors(appState: appState,
+   40|      1|                                                dbRepositories: dbRepositories,
+   41|      1|                                                webRepositories: webRepositories)
+   42|      1|        let diContainer = DIContainer(appState: appState, interactors: interactors)
+   43|      1|        let deepLinksHandler = RealDeepLinksHandler(container: diContainer)
+   44|      1|        let pushNotificationsHandler = RealPushNotificationsHandler(deepLinksHandler: deepLinksHandler)
+   45|      1|        let systemEventsHandler = RealSystemEventsHandler(
+   46|      1|            container: diContainer, deepLinksHandler: deepLinksHandler,
+   47|      1|            pushNotificationsHandler: pushNotificationsHandler,
+   48|      1|            pushTokenWebRepository: webRepositories.pushTokenWebRepository)
+   49|      1|        return AppEnvironment(container: diContainer,
+   50|      1|                              systemEventsHandler: systemEventsHandler)
+   51|      1|    }
+   52|       |    
+   53|      1|    private static func configuredURLSession() -> URLSession {
+   54|      1|        let configuration = URLSessionConfiguration.default
+   55|      1|        configuration.timeoutIntervalForRequest = 60
+   56|      1|        configuration.timeoutIntervalForResource = 120
+   57|      1|        configuration.waitsForConnectivity = true
+   58|      1|        configuration.httpMaximumConnectionsPerHost = 5
+   59|      1|        configuration.requestCachePolicy = .returnCacheDataElseLoad
+   60|      1|        configuration.urlCache = .shared
+   61|      1|        return URLSession(configuration: configuration)
+   62|      1|    }
+   63|       |    
+   64|      1|    private static func configuredWebRepositories(session: URLSession) -> DIContainer.WebRepositories {
+   65|      1|        let countriesWebRepository = RealCountriesWebRepository(
+   66|      1|            session: session,
+   67|      1|            baseURL: "https://restcountries.com/v2")
+   68|      1|        let imageWebRepository = RealImageWebRepository(
+   69|      1|            session: session,
+   70|      1|            baseURL: "https://ezgif.com")
+   71|      1|        let pushTokenWebRepository = RealPushTokenWebRepository(
+   72|      1|            session: session,
+   73|      1|            baseURL: "https://fake.backend.com")
+   74|      1|        return .init(imageRepository: imageWebRepository,
+   75|      1|                     countriesRepository: countriesWebRepository,
+   76|      1|                     pushTokenWebRepository: pushTokenWebRepository)
+   77|      1|    }
+   78|       |    
+   79|      1|    private static func configuredDBRepositories(appState: Store<AppState>) -> DIContainer.DBRepositories {
+   80|      1|        let persistentStore = CoreDataStack(version: CoreDataStack.Version.actual)
+   81|      1|        let countriesDBRepository = RealCountriesDBRepository(persistentStore: persistentStore)
+   82|      1|        return .init(countriesRepository: countriesDBRepository)
+   83|      1|    }
+   84|       |    
+   85|       |    private static func configuredInteractors(appState: Store<AppState>,
+   86|       |                                              dbRepositories: DIContainer.DBRepositories,
+   87|       |                                              webRepositories: DIContainer.WebRepositories
+   88|      1|    ) -> DIContainer.Interactors {
+   89|      1|        
+   90|      1|        let countriesInteractor = RealCountriesInteractor(
+   91|      1|            webRepository: webRepositories.countriesRepository,
+   92|      1|            dbRepository: dbRepositories.countriesRepository,
+   93|      1|            appState: appState)
+   94|      1|        
+   95|      1|        let imagesInteractor = RealImagesInteractor(
+   96|      1|            webRepository: webRepositories.imageRepository)
+   97|      1|        
+   98|      1|        let userPermissionsInteractor = RealUserPermissionsInteractor(
+   99|      0|            appState: appState, openAppSettings: {
+  100|      0|                URL(string: UIApplication.openSettingsURLString).flatMap {
+  101|      0|                    UIApplication.shared.open($0, options: [:], completionHandler: nil)
+  102|      0|                }
+  103|      0|            })
+  104|      1|        
+  105|      1|        return .init(countriesInteractor: countriesInteractor,
+  106|      1|                     imagesInteractor: imagesInteractor,
+  107|      1|                     userPermissionsInteractor: userPermissionsInteractor)
+  108|      1|    }
+  109|       |}
+  110|       |
+  111|       |extension DIContainer {
+  112|       |    struct WebRepositories {
+  113|       |        let imageRepository: ImageWebRepository
+  114|       |        let countriesRepository: CountriesWebRepository
+  115|       |        let pushTokenWebRepository: PushTokenWebRepository
+  116|       |    }
+  117|       |    
+  118|       |    struct DBRepositories {
+  119|       |        let countriesRepository: CountriesDBRepository
+  120|       |    }
+  121|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/System/DeepLinksHandler.swift:
+    1|       |//
+    2|       |//  DeepLinksHandler.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 26.04.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Foundation
+   10|       |
+   11|       |enum DeepLink: Equatable {
+   12|       |    
+   13|       |    case showCountryFlag(alpha3Code: Country.Code)
+   14|       |    
+   15|      3|    init?(url: URL) {
+   16|      3|        guard
+   17|      3|            let components = URLComponents(url: url, resolvingAgainstBaseURL: true),
+   18|      3|            components.host == "www.example.com",
+   19|      3|            let query = components.queryItems
+   20|      2|            else { return nil }
+   21|      2|        if let item = query.first(where: { $0.name == "alpha3code" }),
+   22|      1|            let alpha3Code = item.value {
+   23|      1|            self = .showCountryFlag(alpha3Code: Country.Code(alpha3Code))
+   24|      1|            return
+   25|      1|        }
+   26|      1|        return nil
+   27|      2|    }
+   28|       |}
+   29|       |
+   30|       |// MARK: - DeepLinksHandler
+   31|       |
+   32|       |protocol DeepLinksHandler {
+   33|       |    func open(deepLink: DeepLink)
+   34|       |}
+   35|       |
+   36|       |struct RealDeepLinksHandler: DeepLinksHandler {
+   37|       |    
+   38|       |    private let container: DIContainer
+   39|       |    
+   40|      4|    init(container: DIContainer) {
+   41|      4|        self.container = container
+   42|      4|    }
+   43|       |    
+   44|      2|    func open(deepLink: DeepLink) {
+   45|      2|        switch deepLink {
+   46|      2|        case let .showCountryFlag(alpha3Code):
+   47|      2|            let routeToDestination = {
+   48|      2|                self.container.appState.bulkUpdate {
+   49|      2|                    $0.routing.countriesList.countryDetails = alpha3Code
+   50|      2|                    $0.routing.countryDetails.detailsSheet = true
+   51|      2|                }
+   52|      2|            }
+   53|      2|            /*
+   54|      2|             SwiftUI is unable to perform complex navigation involving
+   55|      2|             simultaneous dismissal or older screens and presenting new ones.
+   56|      2|             A work around is to perform the navigation in two steps:
+   57|      2|             */
+   58|      2|            let defaultRouting = AppState.ViewRouting()
+   59|      2|            if container.appState.value.routing != defaultRouting {
+   60|      1|                self.container.appState[\.routing] = defaultRouting
+   61|      1|                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: routeToDestination)
+   62|      2|            } else {
+   63|      1|                routeToDestination()
+   64|      2|            }
+   65|      2|        }
+   66|      2|    }
+   67|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/System/PushNotificationsHandler.swift:
+    1|       |//
+    2|       |//  PushNotificationsHandler.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 26.04.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import UserNotifications
+   10|       |
+   11|       |protocol PushNotificationsHandler { }
+   12|       |
+   13|       |class RealPushNotificationsHandler: NSObject, PushNotificationsHandler {
+   14|       |    
+   15|       |    private let deepLinksHandler: DeepLinksHandler
+   16|       |    
+   17|      4|    init(deepLinksHandler: DeepLinksHandler) {
+   18|      4|        self.deepLinksHandler = deepLinksHandler
+   19|      4|        super.init()
+   20|      4|        UNUserNotificationCenter.current().delegate = self
+   21|      4|    }
+   22|       |}
+   23|       |
+   24|       |// MARK: - UNUserNotificationCenterDelegate
+   25|       |
+   26|       |extension RealPushNotificationsHandler: UNUserNotificationCenterDelegate {
+   27|       |    
+   28|       |    func userNotificationCenter(_ center: UNUserNotificationCenter,
+   29|       |                                willPresent notification: UNNotification,
+   30|       |                                withCompletionHandler completionHandler:
+   31|      0|        @escaping (UNNotificationPresentationOptions) -> Void) {
+   32|      0|        completionHandler([.alert, .sound])
+   33|      0|    }
+   34|       |    
+   35|       |    func userNotificationCenter(_ center: UNUserNotificationCenter,
+   36|       |                                didReceive response: UNNotificationResponse,
+   37|      0|                                withCompletionHandler completionHandler: @escaping () -> Void) {
+   38|      0|        let userInfo = response.notification.request.content.userInfo
+   39|      0|        handleNotification(userInfo: userInfo, completionHandler: completionHandler)
+   40|      0|    }
+   41|       |    
+   42|      2|    func handleNotification(userInfo: [AnyHashable: Any], completionHandler: @escaping () -> Void) {
+   43|      2|        guard let payload = userInfo["aps"] as? NotificationPayload,
+   44|      1|            let countryCode = payload["country"] as? Country.Code else {
+   45|      1|            completionHandler()
+   46|      1|            return
+   47|      1|        }
+   48|      1|        deepLinksHandler.open(deepLink: .showCountryFlag(alpha3Code: countryCode))
+   49|      1|        completionHandler()
+   50|      1|    }
+   51|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/System/SceneDelegate.swift:
+    1|       |//
+    2|       |//  SceneDelegate.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 23.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import UIKit
+   10|       |import SwiftUI
+   11|       |import Combine
+   12|       |import Foundation
+   13|       |
+   14|       |final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+   15|       |
+   16|       |    var window: UIWindow?
+   17|       |    var systemEventsHandler: SystemEventsHandler?
+   18|       |
+   19|       |    func scene(_ scene: UIScene, willConnectTo session: UISceneSession,
+   20|      1|               options connectionOptions: UIScene.ConnectionOptions) {
+   21|      1|        let environment = AppEnvironment.bootstrap()
+   22|      1|        let contentView = ContentView(container: environment.container)
+   23|      1|        if let windowScene = scene as? UIWindowScene {
+   24|      1|            let window = UIWindow(windowScene: windowScene)
+   25|      1|            window.rootViewController = UIHostingController(rootView: contentView)
+   26|      1|            self.window = window
+   27|      1|            window.makeKeyAndVisible()
+   28|      1|        }
+   29|      1|        self.systemEventsHandler = environment.systemEventsHandler
+   30|      1|        if !connectionOptions.urlContexts.isEmpty {
+   31|      0|            systemEventsHandler?.sceneOpenURLContexts(connectionOptions.urlContexts)
+   32|      1|        }
+   33|      1|    }
+   34|       |    
+   35|      1|    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+   36|      1|        systemEventsHandler?.sceneOpenURLContexts(URLContexts)
+   37|      1|    }
+   38|       |    
+   39|      2|    func sceneDidBecomeActive(_ scene: UIScene) {
+   40|      2|        systemEventsHandler?.sceneDidBecomeActive()
+   41|      2|    }
+   42|       |    
+   43|      1|    func sceneWillResignActive(_ scene: UIScene) {
+   44|      1|        systemEventsHandler?.sceneWillResignActive()
+   45|      1|    }
+   46|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/System/SystemEventsHandler.swift:
+    1|       |//
+    2|       |//  SystemEventsHandler.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 27.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import UIKit
+   10|       |import Combine
+   11|       |
+   12|       |protocol SystemEventsHandler {
+   13|       |    func sceneOpenURLContexts(_ urlContexts: Set<UIOpenURLContext>)
+   14|       |    func sceneDidBecomeActive()
+   15|       |    func sceneWillResignActive()
+   16|       |    func handlePushRegistration(result: Result<Data, Error>)
+   17|       |    func appDidReceiveRemoteNotification(payload: NotificationPayload,
+   18|       |                                         fetchCompletion: @escaping FetchCompletion)
+   19|       |}
+   20|       |
+   21|       |struct RealSystemEventsHandler: SystemEventsHandler {
+   22|       |    
+   23|       |    let container: DIContainer
+   24|       |    let deepLinksHandler: DeepLinksHandler
+   25|       |    let pushNotificationsHandler: PushNotificationsHandler
+   26|       |    let pushTokenWebRepository: PushTokenWebRepository
+   27|     11|    private var cancelBag = CancelBag()
+   28|       |    
+   29|       |    init(container: DIContainer,
+   30|       |         deepLinksHandler: DeepLinksHandler,
+   31|       |         pushNotificationsHandler: PushNotificationsHandler,
+   32|     11|         pushTokenWebRepository: PushTokenWebRepository) {
+   33|     11|        
+   34|     11|        self.container = container
+   35|     11|        self.deepLinksHandler = deepLinksHandler
+   36|     11|        self.pushNotificationsHandler = pushNotificationsHandler
+   37|     11|        self.pushTokenWebRepository = pushTokenWebRepository
+   38|     11|        
+   39|     11|        installKeyboardHeightObserver()
+   40|     11|        installPushNotificationsSubscriberOnLaunch()
+   41|     11|    }
+   42|       |     
+   43|     11|    private func installKeyboardHeightObserver() {
+   44|     11|        let appState = container.appState
+   45|     11|        NotificationCenter.default.keyboardHeightPublisher
+   46|      8|            .sink { [appState] height in
+   47|      8|                appState[\.system.keyboardHeight] = height
+   48|      8|            }
+   49|     11|            .store(in: cancelBag)
+   50|     11|    }
+   51|       |     
+   52|     11|    private func installPushNotificationsSubscriberOnLaunch() {
+   53|     11|        weak var permissions = container.interactors.userPermissionsInteractor
+   54|     11|        container.appState
+   55|     11|            .updates(for: AppState.permissionKeyPath(for: .pushNotifications))
+   56|     14|            .first(where: { $0 != .unknown })
+   57|      3|            .sink { status in
+   58|      3|                if status == .granted {
+   59|      2|                    // If the permission was granted on previous launch
+   60|      2|                    // requesting the push token again:
+   61|      2|                    permissions?.request(permission: .pushNotifications)
+   62|      3|                }
+   63|      3|            }
+   64|     11|            .store(in: cancelBag)
+   65|     11|    }
+   66|       |    
+   67|      4|    func sceneOpenURLContexts(_ urlContexts: Set<UIOpenURLContext>) {
+   68|      3|        guard let url = urlContexts.first?.url else { return }
+   69|      3|        handle(url: url)
+   70|      3|    }
+   71|       |    
+   72|      3|    private func handle(url: URL) {
+   73|      2|        guard let deepLink = DeepLink(url: url) else { return }
+   74|      1|        deepLinksHandler.open(deepLink: deepLink)
+   75|      1|    }
+   76|       |    
+   77|      3|    func sceneDidBecomeActive() {
+   78|      3|        container.appState[\.system.isActive] = true
+   79|      3|        container.interactors.userPermissionsInteractor.resolveStatus(for: .pushNotifications)
+   80|      3|    }
+   81|       |    
+   82|      1|    func sceneWillResignActive() {
+   83|      1|        container.appState[\.system.isActive] = false
+   84|      1|    }
+   85|       |    
+   86|      1|    func handlePushRegistration(result: Result<Data, Error>) {
+   87|      1|        if let pushToken = try? result.get() {
+   88|      1|            pushTokenWebRepository
+   89|      1|                .register(devicePushToken: pushToken)
+   90|      1|                .sinkToResult { _ in }
+   91|      1|                .store(in: cancelBag)
+   92|      1|        }
+   93|      1|    }
+   94|       |    
+   95|       |    func appDidReceiveRemoteNotification(payload: NotificationPayload,
+   96|      1|                                         fetchCompletion: @escaping FetchCompletion) {
+   97|      1|        container.interactors.countriesInteractor
+   98|      1|            .refreshCountriesList()
+   99|      1|            .sinkToResult { result in
+  100|      1|                fetchCompletion(result.isSuccess ? .newData : .failed)
+  101|      1|            }
+  102|      1|            .store(in: cancelBag)
+  103|      1|    }
+  104|       |}
+  105|       |
+  106|       |// MARK: - Notifications
+  107|       |
+  108|       |private extension NotificationCenter {
+  109|     11|    var keyboardHeightPublisher: AnyPublisher<CGFloat, Never> {
+  110|     11|        let willShow = publisher(for: UIApplication.keyboardWillShowNotification)
+  111|      4|            .map { $0.keyboardHeight }
+  112|     11|        let willHide = publisher(for: UIApplication.keyboardWillHideNotification)
+  113|      4|            .map { _ in CGFloat(0) }
+  114|     11|        return Publishers.Merge(willShow, willHide)
+  115|     11|            .eraseToAnyPublisher()
+  116|     11|    }
+  117|       |}
+  118|       |
+  119|       |private extension Notification {
+  120|      4|    var keyboardHeight: CGFloat {
+  121|      4|        return (userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?
+  122|      0|            .cgRectValue.height ?? 0
+  123|      4|    }
+  124|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/UI/Components/ActivityIndicatorView.swift:
+    1|       |//
+    2|       |//  ActivityIndicatorView.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 25.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |
+   11|       |struct ActivityIndicatorView: UIViewRepresentable {
+   12|       |
+   13|      9|    func makeUIView(context: UIViewRepresentableContext<ActivityIndicatorView>) -> UIActivityIndicatorView {
+   14|      9|        return UIActivityIndicatorView(style: .large)
+   15|      9|    }
+   16|       |
+   17|      9|    func updateUIView(_ uiView: UIActivityIndicatorView, context: UIViewRepresentableContext<ActivityIndicatorView>) {
+   18|      9|        uiView.startAnimating()
+   19|      9|    }
+   20|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/UI/Components/CountryCell.swift:
+    1|       |//
+    2|       |//  CountryCell.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 25.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |
+   11|       |struct CountryCell: View {
+   12|       |    
+   13|       |    let country: Country
+   14|      1|    @Environment(\.locale) var locale: Locale
+   15|       |    
+   16|      0|    var body: some View {
+   17|      0|        VStack(alignment: .leading) {
+   18|      0|            Text(country.name(locale: locale))
+   19|      0|                .font(.title)
+   20|      0|            Text("Population \(country.population)")
+   21|      0|                .font(.caption)
+   22|      0|        }
+   23|      0|        .padding()
+   24|      0|        .frame(maxWidth: .infinity, maxHeight: 60, alignment: .leading)
+   25|      0|    }
+   26|       |}
+   27|       |
+   28|       |#if DEBUG
+   29|       |struct CountryCell_Previews: PreviewProvider {
+   30|      1|    static var previews: some View {
+   31|      1|        CountryCell(country: Country.mockedData[0])
+   32|      1|            .previewLayout(.fixed(width: 375, height: 60))
+   33|      1|    }
+   34|       |}
+   35|       |#endif
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/UI/Components/DetailRow.swift:
+    1|       |//
+    2|       |//  DetailRow.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 25.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |
+   11|       |struct DetailRow: View {
+   12|       |    let leftLabel: Text
+   13|       |    let rightLabel: Text
+   14|       |    
+   15|     10|    init(leftLabel: Text, rightLabel: Text) {
+   16|     10|        self.leftLabel = leftLabel
+   17|     10|        self.rightLabel = rightLabel
+   18|     10|    }
+   19|       |    
+   20|     36|    init(leftLabel: Text, rightLabel: LocalizedStringKey) {
+   21|     36|        self.leftLabel = leftLabel
+   22|     36|        self.rightLabel = Text(rightLabel)
+   23|     36|    }
+   24|       |    
+   25|     15|    var body: some View {
+   26|     15|        HStack {
+   27|     15|            leftLabel
+   28|     15|                .font(.headline)
+   29|     15|            Spacer()
+   30|     15|            rightLabel
+   31|     15|                .font(.callout)
+   32|     15|        }
+   33|     15|        .padding()
+   34|     15|        .frame(maxWidth: .infinity, maxHeight: 40, alignment: .leading)
+   35|     15|    }
+   36|       |}
+   37|       |
+   38|       |#if DEBUG
+   39|       |struct DetailRow_Previews: PreviewProvider {
+   40|      1|    static var previews: some View {
+   41|      1|        DetailRow(leftLabel: Text("Rate"), rightLabel: Text("$123.99"))
+   42|      1|            .previewLayout(.fixed(width: 375, height: 40))
+   43|      1|    }
+   44|       |}
+   45|       |#endif
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/UI/Components/ErrorView.swift:
+    1|       |//
+    2|       |//  ErrorView.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 25.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |
+   11|       |struct ErrorView: View {
+   12|       |    let error: Error
+   13|       |    let retryAction: () -> Void
+   14|       |    
+   15|      8|    var body: some View {
+   16|      8|        VStack {
+   17|      8|            Text("An Error Occured")
+   18|      8|                .font(.title)
+   19|      8|            Text(error.localizedDescription)
+   20|      8|                .font(.callout)
+   21|      8|                .multilineTextAlignment(.center)
+   22|      8|                .padding(.bottom, 40).padding()
+   23|      8|            Button(action: retryAction, label: { Text("Retry").bold() })
+   24|      8|        }
+   25|      8|    }
+   26|       |}
+   27|       |
+   28|       |#if DEBUG
+   29|       |struct ErrorView_Previews: PreviewProvider {
+   30|      1|    static var previews: some View {
+   31|      1|        ErrorView(error: NSError(domain: "", code: 0, userInfo: [
+   32|      1|            NSLocalizedDescriptionKey: "Something went wrong"]),
+   33|      1|                  retryAction: { })
+   34|      1|    }
+   35|       |}
+   36|       |#endif
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/UI/Components/SVGImageView.swift:
+    1|       |//
+    2|       |//  SVGImageView.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 25.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |import Combine
+   11|       |import WebKit
+   12|       |
+   13|       |struct SVGImageView: View {
+   14|       |    
+   15|       |    let imageURL: URL
+   16|     31|    @Environment(\.injected) var injected: DIContainer
+   17|       |    @State private var image: Loadable<UIImage>
+   18|     31|    let inspection = Inspection<Self>()
+   19|       |    
+   20|     31|    init(imageURL: URL, image: Loadable<UIImage> = .notRequested) {
+   21|     31|        self.imageURL = imageURL
+   22|     31|        self._image = .init(initialValue: image)
+   23|     31|    }
+   24|       |    
+   25|     32|    var body: some View {
+   26|     32|        content
+   27|      5|            .onReceive(inspection.notice) { self.inspection.visit(self, $0) }
+   28|     32|    }
+   29|       |    
+   30|     32|    private var content: AnyView {
+   31|     32|        switch image {
+   32|     20|        case .notRequested: return AnyView(notRequestedView)
+   33|      6|        case .isLoading: return AnyView(loadingView)
+   34|      3|        case let .loaded(image): return AnyView(loadedView(image))
+   35|      3|        case let .failed(error): return AnyView(failedView(error))
+   36|     32|        }
+   37|     32|    }
+   38|       |}
+   39|       |
+   40|       |// MARK: - Side Effects
+   41|       |
+   42|       |private extension SVGImageView {
+   43|      6|    func loadImage() {
+   44|      6|        injected.interactors.imagesInteractor
+   45|      6|            .load(image: $image, url: imageURL)
+   46|      6|    }
+   47|       |}
+   48|       |
+   49|       |// MARK: - Content
+   50|       |
+   51|       |private extension SVGImageView {
+   52|     20|    var notRequestedView: some View {
+   53|      6|        Text("").onAppear {
+   54|      6|            self.loadImage()
+   55|      6|        }
+   56|     20|    }
+   57|       |    
+   58|      6|    var loadingView: some View {
+   59|      6|        ActivityIndicatorView()
+   60|      6|    }
+   61|       |    
+   62|      3|    func failedView(_ error: Error) -> some View {
+   63|      3|        Text("Unable to load image")
+   64|      3|            .font(.footnote)
+   65|      3|            .multilineTextAlignment(.center)
+   66|      3|            .padding()
+   67|      3|    }
+   68|       |    
+   69|      3|    func loadedView(_ image: UIImage) -> some View {
+   70|      3|        Image(uiImage: image)
+   71|      3|            .resizable()
+   72|      3|            .aspectRatio(contentMode: .fit)
+   73|      3|    }
+   74|       |}
+   75|       |
+   76|       |#if DEBUG
+   77|       |struct SVGImageView_Previews: PreviewProvider {
+   78|      1|    static var previews: some View {
+   79|      1|        VStack {
+   80|      1|            SVGImageView(imageURL: URL(string: "https://restcountries.eu/data/usa.svg")!)
+   81|      1|            SVGImageView(imageURL: URL(string: "https://restcountries.eu/data/alb.svg")!)
+   82|      1|            SVGImageView(imageURL: URL(string: "https://restcountries.eu/data/rus.svg")!)
+   83|      1|        }
+   84|      1|    }
+   85|       |}
+   86|       |#endif
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/UI/Components/SearchBar.swift:
+    1|       |//
+    2|       |//  SearchBar.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 14.01.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import UIKit
+   10|       |import SwiftUI
+   11|       |
+   12|       |struct SearchBar: UIViewRepresentable {
+   13|       |
+   14|       |    @Binding var text: String
+   15|       |
+   16|      4|    func makeUIView(context: UIViewRepresentableContext<SearchBar>) -> UISearchBar {
+   17|      4|        let searchBar = UISearchBar(frame: .zero)
+   18|      4|        searchBar.delegate = context.coordinator
+   19|      4|        return searchBar
+   20|      4|    }
+   21|       |
+   22|     13|    func updateUIView(_ uiView: UISearchBar, context: UIViewRepresentableContext<SearchBar>) {
+   23|     13|        uiView.text = text
+   24|     13|    }
+   25|       |    
+   26|      4|    func makeCoordinator() -> SearchBar.Coordinator {
+   27|      4|        return Coordinator(text: $text)
+   28|      4|    }
+   29|       |}
+   30|       |
+   31|       |extension SearchBar {
+   32|       |    final class Coordinator: NSObject, UISearchBarDelegate {
+   33|       |        
+   34|       |        let text: Binding<String>
+   35|       |        
+   36|      8|        init(text: Binding<String>) {
+   37|      8|            self.text = text
+   38|      8|        }
+   39|       |        
+   40|      1|        func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+   41|      1|            text.wrappedValue = searchText
+   42|      1|        }
+   43|       |        
+   44|      7|        func searchBarShouldBeginEditing(_ searchBar: UISearchBar) -> Bool {
+   45|      7|            searchBar.setShowsCancelButton(true, animated: true)
+   46|      7|            return true
+   47|      7|        }
+   48|       |        
+   49|      1|        func searchBarShouldEndEditing(_ searchBar: UISearchBar) -> Bool {
+   50|      1|            searchBar.setShowsCancelButton(false, animated: true)
+   51|      1|            return true
+   52|      1|        }
+   53|       |        
+   54|      1|        func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+   55|      1|            searchBar.endEditing(true)
+   56|      1|            searchBar.text = ""
+   57|      1|            text.wrappedValue = ""
+   58|      1|        }
+   59|       |    }
+   60|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/UI/RootViewModifier.swift:
+    1|       |//
+    2|       |//  RootViewModifier.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 09.11.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |import Combine
+   11|       |
+   12|       |// MARK: - RootViewAppearance
+   13|       |
+   14|       |struct RootViewAppearance: ViewModifier {
+   15|       |    
+   16|     32|    @Environment(\.injected) private var injected: DIContainer
+   17|       |    @State private var isActive: Bool = false
+   18|     32|    internal let inspection = Inspection<Self>()
+   19|       |    
+   20|     94|    func body(content: Content) -> some View {
+   21|     94|        content
+   22|     94|            .blur(radius: isActive ? 0 : 10)
+   23|     28|            .onReceive(stateUpdate) { self.isActive = $0 }
+   24|      2|            .onReceive(inspection.notice) { self.inspection.visit(self, $0) }
+   25|     94|    }
+   26|       |    
+   27|     94|    private var stateUpdate: AnyPublisher<Bool, Never> {
+   28|     94|        injected.appState.updates(for: \.system.isActive)
+   29|     94|    }
+   30|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/UI/Screens/ContentView.swift:
+    1|       |//
+    2|       |//  ContentView.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 23.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |import Combine
+   11|       |import EnvironmentOverrides
+   12|       |
+   13|       |struct ContentView: View {
+   14|       |    
+   15|       |    private let container: DIContainer
+   16|       |    private let isRunningTests: Bool
+   17|       |    
+   18|      6|    init(container: DIContainer, isRunningTests: Bool = ProcessInfo.processInfo.isRunningTests) {
+   19|      6|        self.container = container
+   20|      6|        self.isRunningTests = isRunningTests
+   21|      6|    }
+   22|       |    
+   23|      3|    var body: some View {
+   24|      3|        VStack {
+   25|      3|            if isRunningTests {
+   26|      2|                Text("Running unit tests")
+   27|      3|            } else {
+   28|      1|                CountriesList()
+   29|      1|                    .attachEnvironmentOverrides(onChange: onChangeHandler)
+   30|      1|                    .inject(container)
+   31|      3|            }
+   32|      3|        }
+   33|      3|    }
+   34|       |    
+   35|      3|    var onChangeHandler: (EnvironmentValues.Diff) -> Void {
+   36|      2|        return { diff in
+   37|      2|            if !diff.isDisjoint(with: [.locale, .sizeCategory]) {
+   38|      1|                self.container.appState[\.routing] = AppState.ViewRouting()
+   39|      2|            }
+   40|      2|        }
+   41|      3|    }
+   42|       |}
+   43|       |
+   44|       |// MARK: - Preview
+   45|       |
+   46|       |#if DEBUG
+   47|       |struct ContentView_Previews: PreviewProvider {
+   48|      1|    static var previews: some View {
+   49|      1|        ContentView(container: .preview)
+   50|      1|    }
+   51|       |}
+   52|       |#endif
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/UI/Screens/CountriesList.swift:
+    1|       |//
+    2|       |//  CountriesList.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 24.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |import Combine
+   11|       |
+   12|       |struct CountriesList: View {
+   13|       |    
+   14|     10|    @State private var countriesSearch = CountriesSearch()
+   15|       |    @State private(set) var countries: Loadable<LazyList<Country>>
+   16|     10|    @State private var routingState: Routing = .init()
+   17|      0|    private var routingBinding: Binding<Routing> {
+   18|      0|        $routingState.dispatched(to: injected.appState, \.routing.countriesList)
+   19|      0|    }
+   20|       |    @State private var canRequestPushPermission: Bool = false
+   21|     10|    @Environment(\.injected) private var injected: DIContainer
+   22|     10|    @Environment(\.locale) private var locale: Locale
+   23|     10|    private let localeContainer = LocaleReader.Container()
+   24|       |    
+   25|     10|    let inspection = Inspection<Self>()
+   26|       |    
+   27|     10|    init(countries: Loadable<LazyList<Country>> = .notRequested) {
+   28|     10|        self._countries = .init(initialValue: countries)
+   29|     10|    }
+   30|       |    
+   31|     19|    var body: some View {
+   32|     19|        GeometryReader { geometry in
+   33|     19|            NavigationView {
+   34|     19|                self.content
+   35|     19|                    .navigationBarItems(trailing: self.permissionsButton)
+   36|     19|                    .navigationBarTitle("Countries")
+   37|     19|                    .navigationBarHidden(self.countriesSearch.keyboardHeight > 0)
+   38|     19|                    .animation(.easeOut(duration: 0.3))
+   39|     19|            }
+   40|     19|            .navigationViewStyle(DoubleColumnNavigationViewStyle())
+   41|     19|        }
+   42|     19|        .modifier(LocaleReader(container: localeContainer))
+   43|     11|        .onReceive(keyboardHeightUpdate) { self.countriesSearch.keyboardHeight = $0 }
+   44|     11|        .onReceive(routingUpdate) { self.routingState = $0 }
+   45|     11|        .onReceive(canRequestPushPermissionUpdate) { self.canRequestPushPermission = $0 }
+   46|      8|        .onReceive(inspection.notice) { self.inspection.visit(self, $0) }
+   47|     19|    }
+   48|       |    
+   49|     19|    private var content: AnyView {
+   50|     19|        switch countries {
+   51|      3|        case .notRequested: return AnyView(notRequestedView)
+   52|      5|        case let .isLoading(last, _): return AnyView(loadingView(last))
+   53|      6|        case let .loaded(countries): return AnyView(loadedView(countries, showSearch: true, showLoading: false))
+   54|      5|        case let .failed(error): return AnyView(failedView(error))
+   55|     19|        }
+   56|     19|    }
+   57|       |    
+   58|     19|    private var permissionsButton: some View {
+   59|     19|        Group {
+   60|     19|            if canRequestPushPermission {
+   61|      0|                Button(action: requestPushPermission, label: { Text("Allow Push") })
+  ------------------
+  | Unexecuted instantiation: $s16CountriesSwiftUI0A4ListV17permissionsButton33_34653A2801565B819903AD4FB31A1398LLQrvg0bC019_ConditionalContentVyAF0F0VyAF4TextVGAF9EmptyViewVGyXEfU_yycACcfu_
+  ------------------
+  | Unexecuted instantiation: $s16CountriesSwiftUI0A4ListV17permissionsButton33_34653A2801565B819903AD4FB31A1398LLQrvg0bC019_ConditionalContentVyAF0F0VyAF4TextVGAF9EmptyViewVGyXEfU_yycACcfu_yycfu0_
+  ------------------
+   62|     19|            } else {
+   63|     19|                EmptyView()
+   64|     19|            }
+   65|     19|        }
+   66|     19|    }
+   67|       |}
+   68|       |
+   69|       |private extension CountriesList {
+   70|       |    
+   71|       |    struct LocaleReader: EnvironmentalModifier {
+   72|       |        
+   73|       |        /**
+   74|       |         Retains the locale, provided by the Environment.
+   75|       |         Variable `@Environment(\.locale) var locale: Locale`
+   76|       |         from the view is not accessible when searching by name
+   77|       |         */
+   78|       |        class Container {
+   79|     10|            var locale: Locale = .backendDefault
+   80|       |        }
+   81|       |        let container: Container
+   82|       |        
+   83|      8|        func resolve(in environment: EnvironmentValues) -> some ViewModifier {
+   84|      8|            container.locale = environment.locale
+   85|      8|            return DummyViewModifier()
+   86|      8|        }
+   87|       |        
+   88|       |        private struct DummyViewModifier: ViewModifier {
+   89|      8|            func body(content: Content) -> some View {
+   90|      8|                // Cannot return just `content` because SwiftUI
+   91|      8|                // flattens modifiers that do nothing to the `content`
+   92|      8|                content.onAppear()
+   93|      8|            }
+   94|       |        }
+   95|       |    }
+   96|       |}
+   97|       |
+   98|       |// MARK: - Side Effects
+   99|       |
+  100|       |private extension CountriesList {
+  101|      2|    func reloadCountries() {
+  102|      2|        injected.interactors.countriesInteractor
+  103|      2|            .load(countries: $countries,
+  104|      2|                  search: countriesSearch.searchText,
+  105|      2|                  locale: localeContainer.locale)
+  106|      2|    }
+  107|       |    
+  108|      0|    func requestPushPermission() {
+  109|      0|        injected.interactors.userPermissionsInteractor
+  110|      0|            .request(permission: .pushNotifications)
+  111|      0|    }
+  112|       |}
+  113|       |
+  114|       |// MARK: - Loading Content
+  115|       |
+  116|       |private extension CountriesList {
+  117|      3|    var notRequestedView: some View {
+  118|      5|        Text("").onAppear(perform: reloadCountries)
+  ------------------
+  | $s16CountriesSwiftUI0A4ListV16notRequestedView33_34653A2801565B819903AD4FB31A1398LLQrvgyycACcfu_:
+  |  118|      3|        Text("").onAppear(perform: reloadCountries)
+  ------------------
+  | $s16CountriesSwiftUI0A4ListV16notRequestedView33_34653A2801565B819903AD4FB31A1398LLQrvgyycACcfu_yycfu0_:
+  |  118|      2|        Text("").onAppear(perform: reloadCountries)
+  ------------------
+  119|      3|    }
+  120|       |    
+  121|      5|    func loadingView(_ previouslyLoaded: LazyList<Country>?) -> some View {
+  122|      2|        if let countries = previouslyLoaded {
+  123|      2|            return AnyView(loadedView(countries, showSearch: true, showLoading: true))
+  124|      3|        } else {
+  125|      3|            return AnyView(ActivityIndicatorView().padding())
+  126|      0|        }
+  127|      0|    }
+  128|       |    
+  129|      5|    func failedView(_ error: Error) -> some View {
+  130|      0|        ErrorView(error: error, retryAction: {
+  131|      0|            self.reloadCountries()
+  132|      0|        })
+  133|      5|    }
+  134|       |}
+  135|       |
+  136|       |// MARK: - Displaying Content
+  137|       |
+  138|       |private extension CountriesList {
+  139|      8|    func loadedView(_ countries: LazyList<Country>, showSearch: Bool, showLoading: Bool) -> some View {
+  140|      8|        VStack {
+  141|      8|            if showSearch {
+  142|      8|                SearchBar(text: $countriesSearch.searchText
+  143|      0|                    .onSet { _ in
+  144|      0|                        self.reloadCountries()
+  145|      0|                    }
+  146|      8|                )
+  147|     16|            }
+  148|      8|            if showLoading {
+  149|      2|                ActivityIndicatorView().padding()
+  150|     16|            }
+  151|      0|            List(countries) { country in
+  152|      0|                NavigationLink(
+  153|      0|                    destination: self.detailsView(country: country),
+  154|      0|                    tag: country.alpha3Code,
+  155|      0|                    selection: self.routingBinding.countryDetails) {
+  156|      0|                        CountryCell(country: country)
+  157|      0|                    }
+  158|      0|            }
+  159|     16|            .id(countries.count)
+  160|     16|        }.padding(.bottom, bottomInset)
+  161|      8|    }
+  162|       |    
+  163|      0|    func detailsView(country: Country) -> some View {
+  164|      0|        CountryDetails(country: country)
+  165|      0|    }
+  166|       |    
+  167|      8|    var bottomInset: CGFloat {
+  168|      8|        if #available(iOS 14, *) {
+  169|      8|            return 0
+  170|      0|        } else {
+  171|      0|            return countriesSearch.keyboardHeight
+  172|      0|        }
+  173|      0|    }
+  174|       |}
+  175|       |
+  176|       |// MARK: - Search State
+  177|       |
+  178|       |extension CountriesList {
+  179|       |    struct CountriesSearch {
+  180|       |        var searchText: String = ""
+  181|       |        var keyboardHeight: CGFloat = 0
+  182|       |    }
+  183|       |}
+  184|       |
+  185|       |// MARK: - Routing
+  186|       |
+  187|       |extension CountriesList {
+  188|       |    struct Routing: Equatable {
+  189|       |        var countryDetails: Country.Code?
+  190|       |    }
+  191|       |}
+  192|       |
+  193|       |// MARK: - State Updates
+  194|       |
+  195|       |private extension CountriesList {
+  196|       |    
+  197|     19|    var routingUpdate: AnyPublisher<Routing, Never> {
+  198|     19|        injected.appState.updates(for: \.routing.countriesList)
+  199|     19|    }
+  200|       |    
+  201|     19|    var keyboardHeightUpdate: AnyPublisher<CGFloat, Never> {
+  202|     19|        injected.appState.updates(for: \.system.keyboardHeight)
+  203|     19|    }
+  204|       |    
+  205|     19|    var canRequestPushPermissionUpdate: AnyPublisher<Bool, Never> {
+  206|     19|        injected.appState.updates(for: AppState.permissionKeyPath(for: .pushNotifications))
+  207|     11|            .map { $0 == .notRequested || $0 == .denied }
+  208|     19|            .eraseToAnyPublisher()
+  209|     19|    }
+  210|       |}
+  211|       |
+  212|       |#if DEBUG
+  213|       |struct CountriesList_Previews: PreviewProvider {
+  214|      1|    static var previews: some View {
+  215|      1|        CountriesList(countries: .loaded(Country.mockedData.lazyList))
+  216|      1|            .inject(.preview)
+  217|      1|    }
+  218|       |}
+  219|       |#endif
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/UI/Screens/CountryDetails.swift:
+    1|       |//
+    2|       |//  CountryDetails.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 25.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |import Combine
+   11|       |
+   12|       |struct CountryDetails: View {
+   13|       |    
+   14|       |    let country: Country
+   15|       |    
+   16|     10|    @Environment(\.locale) var locale: Locale
+   17|     10|    @Environment(\.injected) private var injected: DIContainer
+   18|       |    @State private var details: Loadable<Country.Details>
+   19|     10|    @State private var routingState: Routing = .init()
+   20|     14|    private var routingBinding: Binding<Routing> {
+   21|     14|        $routingState.dispatched(to: injected.appState, \.routing.countryDetails)
+   22|     14|    }
+   23|     10|    let inspection = Inspection<Self>()
+   24|       |    
+   25|     10|    init(country: Country, details: Loadable<Country.Details> = .notRequested) {
+   26|     10|        self.country = country
+   27|     10|        self._details = .init(initialValue: details)
+   28|     10|    }
+   29|       |    
+   30|     34|    var body: some View {
+   31|     34|        content
+   32|     34|            .navigationBarTitle(country.name(locale: locale))
+   33|     13|            .onReceive(routingUpdate) { self.routingState = $0 }
+   34|     10|            .onReceive(inspection.notice) { self.inspection.visit(self, $0) }
+   35|     34|    }
+   36|       |    
+   37|     34|    private var content: AnyView {
+   38|     34|        switch details {
+   39|      4|        case .notRequested: return AnyView(notRequestedView)
+   40|     12|        case .isLoading: return AnyView(loadingView)
+   41|     12|        case let .loaded(countryDetails): return AnyView(loadedView(countryDetails))
+   42|      6|        case let .failed(error): return AnyView(failedView(error))
+   43|     34|        }
+   44|     34|    }
+   45|       |}
+   46|       |
+   47|       |// MARK: - Side Effects
+   48|       |
+   49|       |private extension CountryDetails {
+   50|      3|    func loadCountryDetails() {
+   51|      3|        injected.interactors.countriesInteractor
+   52|      3|            .load(countryDetails: $details, country: country)
+   53|      3|    }
+   54|       |    
+   55|      1|    func showCountryDetailsSheet() {
+   56|      1|        injected.appState[\.routing.countryDetails.detailsSheet] = true
+   57|      1|    }
+   58|       |}
+   59|       |
+   60|       |// MARK: - Loading Content
+   61|       |
+   62|       |private extension CountryDetails {
+   63|      4|    var notRequestedView: some View {
+   64|      2|        Text("").onAppear {
+   65|      2|            self.loadCountryDetails()
+   66|      2|        }
+   67|      4|    }
+   68|       |    
+   69|     12|    var loadingView: some View {
+   70|     12|        VStack {
+   71|     12|            ActivityIndicatorView()
+   72|      0|            Button(action: {
+   73|      0|                self.details.cancelLoading()
+   74|     12|            }, label: { Text("Cancel loading") })
+   75|     12|        }
+   76|     12|    }
+   77|       |    
+   78|      6|    func failedView(_ error: Error) -> some View {
+   79|      1|        ErrorView(error: error, retryAction: {
+   80|      1|            self.loadCountryDetails()
+   81|      1|        })
+   82|      6|    }
+   83|       |}
+   84|       |
+   85|       |// MARK: - Displaying Content
+   86|       |
+   87|       |private extension CountryDetails {
+   88|     12|    func loadedView(_ countryDetails: Country.Details) -> some View {
+   89|     12|        List {
+   90|     12|            country.flag.map { url in
+   91|     12|                flagView(url: url)
+   92|     12|            }
+   93|     12|            basicInfoSectionView(countryDetails: countryDetails)
+   94|     12|            if countryDetails.currencies.count > 0 {
+   95|      9|                currenciesSectionView(currencies: countryDetails.currencies)
+   96|     24|            }
+   97|     12|            if countryDetails.neighbors.count > 0 {
+   98|      9|                neighborsSectionView(neighbors: countryDetails.neighbors)
+   99|     24|            }
+  100|     24|        }
+  101|     12|        .listStyle(GroupedListStyle())
+  102|     12|        .sheet(isPresented: routingBinding.detailsSheet,
+  103|      2|               content: { self.modalDetailsView() })
+  104|     12|    }
+  105|       |    
+  106|     12|    func flagView(url: URL) -> some View {
+  107|     12|        HStack {
+  108|     12|            Spacer()
+  109|     12|            SVGImageView(imageURL: url)
+  110|     12|                .frame(width: 120, height: 80)
+  111|      1|                .onTapGesture {
+  112|      1|                    self.showCountryDetailsSheet()
+  113|      1|                }
+  114|     12|            Spacer()
+  115|     12|        }
+  116|     12|    }
+  117|       |    
+  118|     12|    func basicInfoSectionView(countryDetails: Country.Details) -> some View {
+  119|     12|        Section(header: Text("Basic Info")) {
+  120|     12|            DetailRow(leftLabel: Text(country.alpha3Code), rightLabel: "Code")
+  121|     12|            DetailRow(leftLabel: Text("\(country.population)"), rightLabel: "Population")
+  122|     12|            DetailRow(leftLabel: Text("\(countryDetails.capital)"), rightLabel: "Capital")
+  123|     12|        }
+  124|     12|    }
+  125|       |    
+  126|      9|    func currenciesSectionView(currencies: [Country.Currency]) -> some View {
+  127|      9|        Section(header: Text("Currencies")) {
+  128|      9|            ForEach(currencies) { currency in
+  129|      9|                DetailRow(leftLabel: Text(currency.title), rightLabel: Text(currency.code))
+  130|      9|            }
+  131|      9|        }
+  132|      9|    }
+  133|       |    
+  134|      9|    func neighborsSectionView(neighbors: [Country]) -> some View {
+  135|      9|        Section(header: Text("Neighboring countries")) {
+  136|      0|            ForEach(neighbors) { country in
+  137|      0|                NavigationLink(destination: self.neighbourDetailsView(country: country)) {
+  138|      0|                    DetailRow(leftLabel: Text(country.name(locale: self.locale)), rightLabel: "")
+  139|      0|                }
+  140|      0|            }
+  141|      9|        }
+  142|      9|    }
+  143|       |    
+  144|      0|    func neighbourDetailsView(country: Country) -> some View {
+  145|      0|        CountryDetails(country: country)
+  146|      0|    }
+  147|       |    
+  148|      2|    func modalDetailsView() -> some View {
+  149|      2|        ModalDetailsView(country: country,
+  150|      2|                         isDisplayed: routingBinding.detailsSheet)
+  151|      2|            .inject(injected)
+  152|      2|    }
+  153|       |}
+  154|       |
+  155|       |// MARK: - Helpers
+  156|       |
+  157|       |private extension Country.Currency {
+  158|      9|    var title: String {
+  159|      9|        return name + (symbol.map {" " + $0} ?? "")
+  160|      9|    }
+  161|       |}
+  162|       |
+  163|       |// MARK: - Routing
+  164|       |
+  165|       |extension CountryDetails {
+  166|       |    struct Routing: Equatable {
+  167|       |        var detailsSheet: Bool = false
+  168|       |    }
+  169|       |}
+  170|       |
+  171|       |// MARK: - State Updates
+  172|       |
+  173|       |private extension CountryDetails {
+  174|       |    
+  175|     34|    var routingUpdate: AnyPublisher<Routing, Never> {
+  176|     34|        injected.appState.updates(for: \.routing.countryDetails)
+  177|     34|    }
+  178|       |}
+  179|       |
+  180|       |// MARK: - Preview
+  181|       |
+  182|       |#if DEBUG
+  183|       |struct CountryDetails_Previews: PreviewProvider {
+  184|      1|    static var previews: some View {
+  185|      1|        CountryDetails(country: Country.mockedData[0])
+  186|      1|            .inject(.preview)
+  187|      1|    }
+  188|       |}
+  189|       |#endif
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/UI/Screens/ModalDetailsView.swift:
+    1|       |//
+    2|       |//  ModalDetailsView.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 26.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |
+   11|       |struct ModalDetailsView: View {
+   12|       |    
+   13|       |    let country: Country
+   14|       |    @Binding var isDisplayed: Bool
+   15|      0|    let inspection = Inspection<Self>()
+   16|       |    
+   17|     11|    var body: some View {
+   18|     11|        NavigationView {
+   19|     11|            VStack {
+   20|     11|                country.flag.map { url in
+   21|     11|                    HStack {
+   22|     11|                        Spacer()
+   23|     11|                        SVGImageView(imageURL: url)
+   24|     11|                            .frame(width: 300, height: 200)
+   25|     11|                        Spacer()
+   26|     11|                    }
+   27|     11|                }
+   28|     11|                closeButton.padding(.top, 40)
+   29|     11|            }
+   30|     11|            .navigationBarTitle(Text(country.name), displayMode: .inline)
+   31|     11|        }
+   32|     11|        .navigationViewStyle(StackNavigationViewStyle())
+   33|      2|        .onReceive(inspection.notice) { self.inspection.visit(self, $0) }
+   34|     11|        .attachEnvironmentOverrides()
+   35|     11|    }
+   36|       |    
+   37|     11|    private var closeButton: some View {
+   38|      0|        Button(action: {
+   39|      0|            self.isDisplayed = false
+   40|     11|        }, label: { Text("Close") })
+   41|     11|    }
+   42|       |}
+   43|       |
+   44|       |#if DEBUG
+   45|       |struct ModalDetailsView_Previews: PreviewProvider {
+   46|       |    
+   47|       |    @State static var isDisplayed: Bool = true
+   48|       |    
+   49|      1|    static var previews: some View {
+   50|      1|        ModalDetailsView(country: Country.mockedData[0], isDisplayed: $isDisplayed)
+   51|      1|            .inject(.preview)
+   52|      1|    }
+   53|       |}
+   54|       |#endif
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Utilities/APICall.swift:
+    1|       |//
+    2|       |//  APICall.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 23.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Foundation
+   10|       |
+   11|       |protocol APICall {
+   12|       |    var path: String { get }
+   13|       |    var method: String { get }
+   14|       |    var headers: [String: String]? { get }
+   15|       |    func body() throws -> Data?
+   16|       |}
+   17|       |
+   18|       |enum APIError: Swift.Error {
+   19|       |    case invalidURL
+   20|       |    case httpCode(HTTPCode)
+   21|       |    case unexpectedResponse
+   22|       |    case imageProcessing([URLRequest])
+   23|       |}
+   24|       |
+   25|       |extension APIError: LocalizedError {
+   26|     17|    var errorDescription: String? {
+   27|     17|        switch self {
+   28|      4|        case .invalidURL: return "Invalid URL"
+   29|      1|        case let .httpCode(code): return "Unexpected HTTP code: \(code)"
+   30|      4|        case .unexpectedResponse: return "Unexpected response from the server"
+   31|      8|        case .imageProcessing: return "Unable to load image"
+   32|     17|        }
+   33|     17|    }
+   34|       |}
+   35|       |
+   36|       |extension APICall {
+   37|     19|    func urlRequest(baseURL: String) throws -> URLRequest {
+   38|      2|        guard let url = URL(string: baseURL + path) else {
+   39|      2|            throw APIError.invalidURL
+   40|     17|        }
+   41|     17|        var request = URLRequest(url: url)
+   42|     17|        request.httpMethod = method
+   43|     17|        request.allHTTPHeaderFields = headers
+   44|     17|        request.httpBody = try body()
+   45|     17|        return request
+   46|     19|    }
+   47|       |}
+   48|       |
+   49|       |typealias HTTPCode = Int
+   50|       |typealias HTTPCodes = Range<HTTPCode>
+   51|       |
+   52|       |extension HTTPCodes {
+   53|       |    static let success = 200 ..< 300
+   54|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Utilities/CancelBag.swift:
+    1|       |//
+    2|       |//  CancelBag.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 04.04.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Combine
+   10|       |
+   11|       |final class CancelBag {
+   12|     82|    fileprivate(set) var subscriptions = Set<AnyCancellable>()
+   13|       |    
+   14|      2|    func cancel() {
+   15|      2|        subscriptions.removeAll()
+   16|      2|    }
+   17|       |}
+   18|       |
+   19|       |extension AnyCancellable {
+   20|       |    
+   21|     54|    func store(in cancelBag: CancelBag) {
+   22|     54|        cancelBag.subscriptions.insert(self)
+   23|     54|    }
+   24|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Utilities/Helpers.swift:
+    1|       |//
+    2|       |//  Helpers.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 10.11.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |import Combine
+   11|       |
+   12|       |// MARK: - General
+   13|       |
+   14|       |extension ProcessInfo {
+   15|     12|    var isRunningTests: Bool {
+   16|     12|        environment["XCTestConfigurationFilePath"] != nil
+   17|     12|    }
+   18|       |}
+   19|       |
+   20|       |extension String {
+   21|      3|    func localized(_ locale: Locale) -> String {
+   22|      3|        let localeId = locale.shortIdentifier
+   23|      3|        guard let path = Bundle.main.path(forResource: localeId, ofType: "lproj"),
+   24|      1|            let bundle = Bundle(path: path) else {
+   25|      1|            return NSLocalizedString(self, comment: "")
+   26|      2|        }
+   27|      2|        return bundle.localizedString(forKey: self, value: nil, table: nil)
+   28|      3|    }
+   29|       |}
+   30|       |
+   31|       |extension Result {
+   32|      3|    var isSuccess: Bool {
+   33|      3|        switch self {
+   34|      2|        case .success: return true
+   35|      1|        case .failure: return false
+   36|      3|        }
+   37|      3|    }
+   38|       |}
+   39|       |
+   40|       |// MARK: - View Inspection helper
+   41|       |
+   42|       |internal final class Inspection<V> {
+   43|     89|    let notice = PassthroughSubject<UInt, Never>()
+   44|     89|    var callbacks = [UInt: (V) -> Void]()
+   45|       |    
+   46|     27|    func visit(_ view: V, _ line: UInt) {
+   47|     27|        if let callback = callbacks.removeValue(forKey: line) {
+   48|     27|            callback(view)
+   49|     27|        }
+   50|     27|    }
+   51|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Utilities/LazyList.swift:
+    1|       |//
+    2|       |//  LazyList.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 18.04.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Foundation
+   10|       |
+   11|       |struct LazyList<T> {
+   12|       |    
+   13|       |    typealias Access = (Int) throws -> T?
+   14|       |    private let access: Access
+   15|       |    private let useCache: Bool
+   16|     37|    private var cache = Cache()
+   17|       |    
+   18|       |    let count: Int
+   19|       |    
+   20|     37|    init(count: Int, useCache: Bool, _ access: @escaping Access) {
+   21|     37|        self.count = count
+   22|     37|        self.useCache = useCache
+   23|     37|        self.access = access
+   24|     37|    }
+   25|       |    
+   26|    887|    func element(at index: Int) throws -> T {
+   27|    629|        guard useCache else {
+   28|    629|            return try get(at: index)
+   29|    258|        }
+   30|    258|        return try cache.sync { elements in
+   31|    123|            if let element = elements[index] {
+   32|    123|                return element
+   33|    135|            }
+   34|    135|            let element = try get(at: index)
+   35|    135|            elements[index] = element
+   36|    135|            return element
+   37|    258|        }
+   38|    887|    }
+   39|       |    
+   40|    764|    private func get(at index: Int) throws -> T {
+   41|      3|        guard let element = try access(index) else {
+   42|      3|            throw Error.elementIsNil(index: index)
+   43|    761|        }
+   44|    761|        return element
+   45|    764|    }
+   46|       |    
+   47|      3|    static var empty: Self {
+   48|      1|        return .init(count: 0, useCache: false) { index in
+   49|      1|            throw Error.elementIsNil(index: index)
+   50|      1|        }
+   51|      3|    }
+   52|       |}
+   53|       |
+   54|       |private extension LazyList {
+   55|       |    class Cache {
+   56|       |        
+   57|     37|        private var elements = [Int: T]()
+   58|       |        
+   59|    258|        func sync(_ access: (inout [Int: T]) throws -> T) throws -> T {
+   60|    200|            guard Thread.isMainThread else {
+   61|    200|                var result: T!
+   62|    200|                try DispatchQueue.main.sync {
+   63|    200|                    result = try access(&elements)
+   64|    200|                }
+   65|    200|                return result
+   66|     58|            }
+   67|     58|            return try access(&elements)
+   68|    258|        }
+   69|       |    }
+   70|       |}
+   71|       |
+   72|       |extension LazyList: Sequence {
+   73|       |    
+   74|       |    enum Error: LocalizedError {
+   75|       |        case elementIsNil(index: Int)
+   76|       |        
+   77|      1|        var localizedDescription: String {
+   78|      1|            switch self {
+   79|      1|            case let .elementIsNil(index):
+   80|      1|                return "Element at index \(index) is nil"
+   81|      1|            }
+   82|      1|        }
+   83|       |    }
+   84|       |    
+   85|       |    struct Iterator: IteratorProtocol {
+   86|       |        typealias Element = T
+   87|       |        private var index = -1
+   88|       |        private var list: LazyList<Element>
+   89|       |        
+   90|    173|        init(list: LazyList<Element>) {
+   91|    173|            self.list = list
+   92|    173|        }
+   93|       |        
+   94|    619|        mutating func next() -> Element? {
+   95|    619|            index += 1
+   96|     88|            guard index < list.count else {
+   97|     88|                return nil
+   98|    531|            }
+   99|    531|            do {
+  100|    531|                return try list.element(at: index)
+  101|      1|            } catch _ {
+  102|      1|                return nil
+  103|  18.4E|            }
+  104|  18.4E|        }
+  105|       |    }
+  106|       |
+  107|    173|    func makeIterator() -> Iterator {
+  108|    173|        .init(list: self)
+  109|    173|    }
+  110|       |
+  111|      1|    var underestimatedCount: Int { count }
+  112|       |}
+  113|       |
+  114|       |extension LazyList: RandomAccessCollection {
+  115|       |    
+  116|       |    typealias Index = Int
+  117|    197|    var startIndex: Index { 0 }
+  118|    142|    var endIndex: Index { count }
+  119|       |    
+  120|    353|    subscript(index: Index) -> Iterator.Element {
+  121|    353|        do {
+  122|    353|            return try element(at: index)
+  123|      0|        } catch let error {
+  124|      0|            fatalError("\(error)")
+  125|      0|        }
+  126|      0|    }
+  127|       |
+  128|      2|    public func index(after index: Index) -> Index {
+  129|      2|        return index + 1
+  130|      2|    }
+  131|       |
+  132|      1|    public func index(before index: Index) -> Index {
+  133|      1|        return index - 1
+  134|      1|    }
+  135|       |}
+  136|       |
+  137|       |extension LazyList: Equatable where T: Equatable {
+  138|     85|    static func == (lhs: LazyList<T>, rhs: LazyList<T>) -> Bool {
+  139|     84|        guard lhs.count == rhs.count else { return false }
+  140|    258|        return zip(lhs, rhs).first(where: { $0 != $1 }) == nil
+  141|     85|    }
+  142|       |}
+  143|       |
+  144|       |extension LazyList: CustomStringConvertible {
+  145|      3|    var description: String {
+  146|      4|        let elements = self.reduce("", { str, element in
+  147|      4|            if str.count == 0 {
+  148|      2|                return "\(element)"
+  149|      2|            }
+  150|      2|            return str + ", \(element)"
+  151|      4|        })
+  152|      3|        return "LazyList<[\(elements)]>"
+  153|      3|    }
+  154|       |}
+  155|       |
+  156|       |extension RandomAccessCollection {
+  157|     15|    var lazyList: LazyList<Element> {
+  158|    615|        return .init(count: self.count, useCache: false) {
+  159|    614|            guard $0 < self.count else { return nil }
+  160|    614|            let index = self.index(self.startIndex, offsetBy: $0)
+  161|    614|            return self[index]
+  162|    615|        }
+  163|     15|    }
+  164|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Utilities/Loadable.swift:
+    1|       |//
+    2|       |//  Loadable.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 23.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Foundation
+   10|       |import SwiftUI
+   11|       |
+   12|       |typealias LoadableSubject<Value> = Binding<Loadable<Value>>
+   13|       |
+   14|       |enum Loadable<T> {
+   15|       |
+   16|       |    case notRequested
+   17|       |    case isLoading(last: T?, cancelBag: CancelBag)
+   18|       |    case loaded(T)
+   19|       |    case failed(Error)
+   20|       |
+   21|     19|    var value: T? {
+   22|     19|        switch self {
+   23|      3|        case let .loaded(value): return value
+   24|      2|        case let .isLoading(last, _): return last
+   25|     14|        default: return nil
+   26|     19|        }
+   27|     19|    }
+   28|      8|    var error: Error? {
+   29|      8|        switch self {
+   30|      4|        case let .failed(error): return error
+   31|      4|        default: return nil
+   32|      8|        }
+   33|      8|    }
+   34|       |}
+   35|       |
+   36|       |extension Loadable {
+   37|       |    
+   38|     14|    mutating func setIsLoading(cancelBag: CancelBag) {
+   39|     14|        self = .isLoading(last: value, cancelBag: cancelBag)
+   40|     14|    }
+   41|       |    
+   42|      2|    mutating func cancelLoading() {
+   43|      2|        switch self {
+   44|      2|        case let .isLoading(last, cancelBag):
+   45|      2|            cancelBag.cancel()
+   46|      1|            if let last = last {
+   47|      1|                self = .loaded(last)
+   48|      2|            } else {
+   49|      1|                let error = NSError(
+   50|      1|                    domain: NSCocoaErrorDomain, code: NSUserCancelledError,
+   51|      1|                    userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("Canceled by user",
+   52|      1|                                                                            comment: "")])
+   53|      1|                self = .failed(error)
+   54|      2|            }
+   55|      0|        default: break
+   56|      2|        }
+   57|      2|    }
+   58|       |    
+   59|     11|    func map<V>(_ transform: (T) throws -> V) -> Loadable<V> {
+   60|     11|        do {
+   61|     11|            switch self {
+   62|      1|            case .notRequested: return .notRequested
+   63|      3|            case let .failed(error): return .failed(error)
+   64|      2|            case let .isLoading(value, cancelBag):
+   65|      1|                return .isLoading(last: try value.map { try transform($0) },
+   66|      2|                                  cancelBag: cancelBag)
+   67|      5|            case let .loaded(value):
+   68|      5|                return .loaded(try transform(value))
+   69|     11|            }
+   70|      1|        } catch {
+   71|      1|            return .failed(error)
+   72|  18.4E|        }
+   73|  18.4E|    }
+   74|       |}
+   75|       |
+   76|       |protocol SomeOptional {
+   77|       |    associatedtype Wrapped
+   78|       |    func unwrap() throws -> Wrapped
+   79|       |}
+   80|       |
+   81|       |struct ValueIsMissingError: Error {
+   82|      1|    var localizedDescription: String {
+   83|      1|        NSLocalizedString("Data is missing", comment: "")
+   84|      1|    }
+   85|       |}
+   86|       |
+   87|       |extension Optional: SomeOptional {
+   88|      3|    func unwrap() throws -> Wrapped {
+   89|      3|        switch self {
+   90|      3|        case let .some(value): return value
+   91|      0|        case .none: throw ValueIsMissingError()
+   92|      3|        }
+   93|      3|    }
+   94|       |}
+   95|       |
+   96|       |extension Loadable where T: SomeOptional {
+   97|      5|    func unwrap() -> Loadable<T.Wrapped> {
+   98|      3|        map { try $0.unwrap() }
+   99|      5|    }
+  100|       |}
+  101|       |
+  102|       |extension Loadable: Equatable where T: Equatable {
+  103|     94|    static func == (lhs: Loadable<T>, rhs: Loadable<T>) -> Bool {
+  104|     94|        switch (lhs, rhs) {
+  105|     28|        case (.notRequested, .notRequested): return true
+  106|     18|        case let (.isLoading(lhsV, _), .isLoading(rhsV, _)): return lhsV == rhsV
+  107|     11|        case let (.loaded(lhsV), .loaded(rhsV)): return lhsV == rhsV
+  108|      9|        case let (.failed(lhsE), .failed(rhsE)):
+  109|      9|            return lhsE.localizedDescription == rhsE.localizedDescription
+  110|     28|        default: return false
+  111|     94|        }
+  112|     94|    }
+  113|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Utilities/NetworkingHelpers.swift:
+    1|       |//
+    2|       |//  NetworkingHelpers.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 04.04.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |import Combine
+   11|       |import Foundation
+   12|       |
+   13|       |extension Just where Output == Void {
+   14|     17|    static func withErrorType<E>(_ errorType: E.Type) -> AnyPublisher<Void, E> {
+   15|     17|        return withErrorType((), E.self)
+   16|     17|    }
+   17|       |}
+   18|       |
+   19|       |extension Just {
+   20|       |    static func withErrorType<E>(_ value: Output, _ errorType: E.Type
+   21|     24|    ) -> AnyPublisher<Output, E> {
+   22|     24|        return Just(value)
+   23|     24|            .setFailureType(to: E.self)
+   24|     24|            .eraseToAnyPublisher()
+   25|     24|    }
+   26|       |}
+   27|       |
+   28|       |extension Publisher {
+   29|     33|    func sinkToResult(_ result: @escaping (Result<Output, Failure>) -> Void) -> AnyCancellable {
+   30|     29|        return sink(receiveCompletion: { completion in
+   31|     29|            switch completion {
+   32|     13|            case let .failure(error):
+   33|     13|                result(.failure(error))
+   34|     16|            default: break
+   35|     29|            }
+   36|     20|        }, receiveValue: { value in
+   37|     20|            result(.success(value))
+   38|     20|        })
+   39|     33|    }
+   40|       |    
+   41|     15|    func sinkToLoadable(_ completion: @escaping (Loadable<Output>) -> Void) -> AnyCancellable {
+   42|     15|        return sink(receiveCompletion: { subscriptionCompletion in
+   43|      8|            if let error = subscriptionCompletion.error {
+   44|      8|                completion(.failed(error))
+   45|     15|            }
+   46|      7|        }, receiveValue: { value in
+   47|      7|            completion(.loaded(value))
+   48|      7|        })
+   49|     15|    }
+   50|       |    
+   51|     14|    func extractUnderlyingError() -> Publishers.MapError<Self, Failure> {
+   52|      7|        mapError {
+   53|      6|            ($0.underlyingError as? Failure) ?? $0
+   54|      7|        }
+   55|     14|    }
+   56|       |    
+   57|       |    /// Holds the downstream delivery of output until the specified time interval passed after the subscription
+   58|       |    /// Does not hold the output if it arrives later than the time threshold
+   59|       |    ///
+   60|       |    /// - Parameters:
+   61|       |    ///   - interval: The minimum time interval that should elapse after the subscription.
+   62|       |    /// - Returns: A publisher that optionally delays delivery of elements to the downstream receiver.
+   63|       |    
+   64|      8|    func ensureTimeSpan(_ interval: TimeInterval) -> AnyPublisher<Output, Failure> {
+   65|      8|        let timer = Just<Void>(())
+   66|      8|            .delay(for: .seconds(interval), scheduler: RunLoop.main)
+   67|      8|            .setFailureType(to: Failure.self)
+   68|      8|        return zip(timer)
+   69|      6|            .map { $0.0 }
+   70|      8|            .eraseToAnyPublisher()
+   71|      8|    }
+   72|       |}
+   73|       |
+   74|       |private extension Error {
+   75|      7|    var underlyingError: Error? {
+   76|      7|        let nsError = self as NSError
+   77|      7|        if nsError.domain == NSURLErrorDomain && nsError.code == -1009 {
+   78|      0|            // "The Internet connection appears to be offline."
+   79|      0|            return self
+   80|      7|        }
+   81|      7|        return nsError.userInfo[NSUnderlyingErrorKey] as? Error
+   82|      7|    }
+   83|       |}
+   84|       |
+   85|       |extension Subscribers.Completion {
+   86|     15|    var error: Failure? {
+   87|     15|        switch self {
+   88|      8|        case let .failure(error): return error
+   89|      7|        default: return nil
+   90|     15|        }
+   91|     15|    }
+   92|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Utilities/Store.swift:
+    1|       |//
+    2|       |//  Store.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 04.04.2020.
+    6|       |//  Copyright © 2020 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import SwiftUI
+   10|       |import Combine
+   11|       |
+   12|       |typealias Store<State> = CurrentValueSubject<State, Never>
+   13|       |
+   14|       |extension Store {
+   15|       |    
+   16|       |    subscript<T>(keyPath: WritableKeyPath<Output, T>) -> T where T: Equatable {
+   17|      7|        get { value[keyPath: keyPath] }
+   18|     25|        set {
+   19|     25|            var value = self.value
+   20|     25|            if value[keyPath: keyPath] != newValue {
+   21|     24|                value[keyPath: keyPath] = newValue
+   22|     24|                self.value = value
+   23|     25|            }
+   24|     25|        }
+   25|       |    }
+   26|       |    
+   27|      9|    func bulkUpdate(_ update: (inout Output) -> Void) {
+   28|      9|        var value = self.value
+   29|      9|        update(&value)
+   30|      9|        self.value = value
+   31|      9|    }
+   32|       |    
+   33|       |    func updates<Value>(for keyPath: KeyPath<Output, Value>) ->
+   34|    196|        AnyPublisher<Value, Failure> where Value: Equatable {
+   35|    196|        return map(keyPath).removeDuplicates().eraseToAnyPublisher()
+   36|    196|    }
+   37|       |}
+   38|       |
+   39|       |// MARK: -
+   40|       |
+   41|       |extension Binding where Value: Equatable {
+   42|       |    func dispatched<State>(to state: Store<State>,
+   43|     14|                           _ keyPath: WritableKeyPath<State, Value>) -> Self {
+   44|      0|        return onSet { state[keyPath] = $0 }
+   45|     14|    }
+   46|       |}
+   47|       |
+   48|       |extension Binding where Value: Equatable {
+   49|       |    typealias ValueClosure = (Value) -> Void
+   50|       |    
+   51|     22|    func onSet(_ perform: @escaping ValueClosure) -> Self {
+   52|     40|        return .init(get: { () -> Value in
+   53|     40|            self.wrappedValue
+   54|      0|        }, set: { value in
+   55|      0|            if self.wrappedValue != value {
+   56|      0|                self.wrappedValue = value
+   57|      0|            }
+   58|      0|            perform(value)
+   59|      0|        })
+   60|     22|    }
+   61|       |}
+
+/Users/aikesiero/Desktop/clean-architecture-swiftui-master/CountriesSwiftUI/Utilities/WebRepository.swift:
+    1|       |//
+    2|       |//  WebRepository.swift
+    3|       |//  CountriesSwiftUI
+    4|       |//
+    5|       |//  Created by Alexey Naumov on 23.10.2019.
+    6|       |//  Copyright © 2019 Alexey Naumov. All rights reserved.
+    7|       |//
+    8|       |
+    9|       |import Foundation
+   10|       |import Combine
+   11|       |
+   12|       |protocol WebRepository {
+   13|       |    var session: URLSession { get }
+   14|       |    var baseURL: String { get }
+   15|       |    var bgQueue: DispatchQueue { get }
+   16|       |}
+   17|       |
+   18|       |extension WebRepository {
+   19|       |    func call<Value>(endpoint: APICall, httpCodes: HTTPCodes = .success) -> AnyPublisher<Value, Error>
+   20|     11|        where Value: Decodable {
+   21|     11|        do {
+   22|     11|            let request = try endpoint.urlRequest(baseURL: baseURL)
+   23|     11|            return session
+   24|     11|                .dataTaskPublisher(for: request)
+   25|     11|                .requestJSON(httpCodes: httpCodes)
+   26|      3|        } catch let error {
+   27|      3|            return Fail<Value, Error>(error: error).eraseToAnyPublisher()
+   28|  18.4E|        }
+   29|  18.4E|    }
+   30|       |}
+   31|       |
+   32|       |// MARK: - Helpers
+   33|       |
+   34|       |private extension Publisher where Output == URLSession.DataTaskPublisher.Output {
+   35|      8|    func requestJSON<Value>(httpCodes: HTTPCodes) -> AnyPublisher<Value, Error> where Value: Decodable {
+   36|      7|        return tryMap {
+   37|      7|                assert(!Thread.isMainThread)
+   38|      1|                guard let code = ($0.1 as? HTTPURLResponse)?.statusCode else {
+   39|      1|                    throw APIError.unexpectedResponse
+   40|      6|                }
+   41|      1|                guard httpCodes.contains(code) else {
+   42|      1|                    throw APIError.httpCode(code)
+   43|      5|                }
+   44|      5|                return $0.0
+   45|      6|            }
+   46|      8|            .extractUnderlyingError()
+   47|      8|            .decode(type: Value.self, decoder: JSONDecoder())
+   48|      8|            .receive(on: DispatchQueue.main)
+   49|      8|            .eraseToAnyPublisher()
+   50|      8|    }
+   51|       |}
+
+/Users/aikesiero/Library/Developer/Xcode/DerivedData/CountriesSwiftUI-cmhadclklzwvgthbgeaahqohvrbx/Build/Intermediates.noindex/CountriesSwiftUI.build/Debug-iphonesimulator/CountriesSwiftUI.build/DerivedSources/CoreDataGenerated/db_model_v1/CountryDetailsMO+CoreDataProperties.swift:
+    1|       |//
+    2|       |//  CountryDetailsMO+CoreDataProperties.swift
+    3|       |//  
+    4|       |//
+    5|       |//  Created by Aike Fernández Roza on 26/10/21.
+    6|       |//
+    7|       |//  This file was automatically generated and should not be edited.
+    8|       |//
+    9|       |
+   10|       |import Foundation
+   11|       |import CoreData
+   12|       |
+   13|       |
+   14|       |extension CountryDetailsMO {
+   15|       |
+   16|      0|    @nonobjc public class func fetchRequest() -> NSFetchRequest<CountryDetailsMO> {
+   17|      0|        return NSFetchRequest<CountryDetailsMO>(entityName: "CountryDetails")
+   18|      0|    }
+   19|       |
+   20|       |    @NSManaged public var capital: String?
+   21|       |    @NSManaged public var borders: NSSet?
+   22|       |    @NSManaged public var country: CountryMO?
+   23|       |    @NSManaged public var currencies: NSSet?
+   24|       |
+   25|       |}
+   26|       |
+   27|       |// MARK: Generated accessors for borders
+   28|       |extension CountryDetailsMO {
+   29|       |
+   30|       |    @objc(addBordersObject:)
+   31|       |    @NSManaged public func addToBorders(_ value: CountryMO)
+   32|       |
+   33|       |    @objc(removeBordersObject:)
+   34|       |    @NSManaged public func removeFromBorders(_ value: CountryMO)
+   35|       |
+   36|       |    @objc(addBorders:)
+   37|       |    @NSManaged public func addToBorders(_ values: NSSet)
+   38|       |
+   39|       |    @objc(removeBorders:)
+   40|       |    @NSManaged public func removeFromBorders(_ values: NSSet)
+   41|       |
+   42|       |}
+   43|       |
+   44|       |// MARK: Generated accessors for currencies
+   45|       |extension CountryDetailsMO {
+   46|       |
+   47|       |    @objc(addCurrenciesObject:)
+   48|       |    @NSManaged public func addToCurrencies(_ value: CurrencyMO)
+   49|       |
+   50|       |    @objc(removeCurrenciesObject:)
+   51|       |    @NSManaged public func removeFromCurrencies(_ value: CurrencyMO)
+   52|       |
+   53|       |    @objc(addCurrencies:)
+   54|       |    @NSManaged public func addToCurrencies(_ values: NSSet)
+   55|       |
+   56|       |    @objc(removeCurrencies:)
+   57|       |    @NSManaged public func removeFromCurrencies(_ values: NSSet)
+   58|       |
+   59|       |}
+   60|       |
+   61|       |extension CountryDetailsMO : Identifiable {
+   62|       |
+   63|       |}
+
+/Users/aikesiero/Library/Developer/Xcode/DerivedData/CountriesSwiftUI-cmhadclklzwvgthbgeaahqohvrbx/Build/Intermediates.noindex/CountriesSwiftUI.build/Debug-iphonesimulator/CountriesSwiftUI.build/DerivedSources/CoreDataGenerated/db_model_v1/CountryMO+CoreDataProperties.swift:
+    1|       |//
+    2|       |//  CountryMO+CoreDataProperties.swift
+    3|       |//  
+    4|       |//
+    5|       |//  Created by Aike Fernández Roza on 26/10/21.
+    6|       |//
+    7|       |//  This file was automatically generated and should not be edited.
+    8|       |//
+    9|       |
+   10|       |import Foundation
+   11|       |import CoreData
+   12|       |
+   13|       |
+   14|       |extension CountryMO {
+   15|       |
+   16|      0|    @nonobjc public class func fetchRequest() -> NSFetchRequest<CountryMO> {
+   17|      0|        return NSFetchRequest<CountryMO>(entityName: "Country")
+   18|      0|    }
+   19|       |
+   20|       |    @NSManaged public var alpha3code: String?
+   21|       |    @NSManaged public var flagURL: String?
+   22|       |    @NSManaged public var name: String?
+   23|       |    @NSManaged public var population: Int32
+   24|       |    @NSManaged public var borders: NSSet?
+   25|       |    @NSManaged public var countryDetails: CountryDetailsMO?
+   26|       |    @NSManaged public var nameTranslations: NSSet?
+   27|       |
+   28|       |}
+   29|       |
+   30|       |// MARK: Generated accessors for borders
+   31|       |extension CountryMO {
+   32|       |
+   33|       |    @objc(addBordersObject:)
+   34|       |    @NSManaged public func addToBorders(_ value: CountryDetailsMO)
+   35|       |
+   36|       |    @objc(removeBordersObject:)
+   37|       |    @NSManaged public func removeFromBorders(_ value: CountryDetailsMO)
+   38|       |
+   39|       |    @objc(addBorders:)
+   40|       |    @NSManaged public func addToBorders(_ values: NSSet)
+   41|       |
+   42|       |    @objc(removeBorders:)
+   43|       |    @NSManaged public func removeFromBorders(_ values: NSSet)
+   44|       |
+   45|       |}
+   46|       |
+   47|       |// MARK: Generated accessors for nameTranslations
+   48|       |extension CountryMO {
+   49|       |
+   50|       |    @objc(addNameTranslationsObject:)
+   51|       |    @NSManaged public func addToNameTranslations(_ value: NameTranslationMO)
+   52|       |
+   53|       |    @objc(removeNameTranslationsObject:)
+   54|       |    @NSManaged public func removeFromNameTranslations(_ value: NameTranslationMO)
+   55|       |
+   56|       |    @objc(addNameTranslations:)
+   57|       |    @NSManaged public func addToNameTranslations(_ values: NSSet)
+   58|       |
+   59|       |    @objc(removeNameTranslations:)
+   60|       |    @NSManaged public func removeFromNameTranslations(_ values: NSSet)
+   61|       |
+   62|       |}
+   63|       |
+   64|       |extension CountryMO : Identifiable {
+   65|       |
+   66|       |}
+
+/Users/aikesiero/Library/Developer/Xcode/DerivedData/CountriesSwiftUI-cmhadclklzwvgthbgeaahqohvrbx/Build/Intermediates.noindex/CountriesSwiftUI.build/Debug-iphonesimulator/CountriesSwiftUI.build/DerivedSources/CoreDataGenerated/db_model_v1/CurrencyMO+CoreDataProperties.swift:
+    1|       |//
+    2|       |//  CurrencyMO+CoreDataProperties.swift
+    3|       |//  
+    4|       |//
+    5|       |//  Created by Aike Fernández Roza on 26/10/21.
+    6|       |//
+    7|       |//  This file was automatically generated and should not be edited.
+    8|       |//
+    9|       |
+   10|       |import Foundation
+   11|       |import CoreData
+   12|       |
+   13|       |
+   14|       |extension CurrencyMO {
+   15|       |
+   16|      0|    @nonobjc public class func fetchRequest() -> NSFetchRequest<CurrencyMO> {
+   17|      0|        return NSFetchRequest<CurrencyMO>(entityName: "Currency")
+   18|      0|    }
+   19|       |
+   20|       |    @NSManaged public var code: String?
+   21|       |    @NSManaged public var name: String?
+   22|       |    @NSManaged public var symbol: String?
+   23|       |    @NSManaged public var countryDetails: NSSet?
+   24|       |
+   25|       |}
+   26|       |
+   27|       |// MARK: Generated accessors for countryDetails
+   28|       |extension CurrencyMO {
+   29|       |
+   30|       |    @objc(addCountryDetailsObject:)
+   31|       |    @NSManaged public func addToCountryDetails(_ value: CountryDetailsMO)
+   32|       |
+   33|       |    @objc(removeCountryDetailsObject:)
+   34|       |    @NSManaged public func removeFromCountryDetails(_ value: CountryDetailsMO)
+   35|       |
+   36|       |    @objc(addCountryDetails:)
+   37|       |    @NSManaged public func addToCountryDetails(_ values: NSSet)
+   38|       |
+   39|       |    @objc(removeCountryDetails:)
+   40|       |    @NSManaged public func removeFromCountryDetails(_ values: NSSet)
+   41|       |
+   42|       |}
+   43|       |
+   44|       |extension CurrencyMO : Identifiable {
+   45|       |
+   46|       |}
+
+/Users/aikesiero/Library/Developer/Xcode/DerivedData/CountriesSwiftUI-cmhadclklzwvgthbgeaahqohvrbx/Build/Intermediates.noindex/CountriesSwiftUI.build/Debug-iphonesimulator/CountriesSwiftUI.build/DerivedSources/CoreDataGenerated/db_model_v1/NameTranslationMO+CoreDataProperties.swift:
+    1|       |//
+    2|       |//  NameTranslationMO+CoreDataProperties.swift
+    3|       |//  
+    4|       |//
+    5|       |//  Created by Aike Fernández Roza on 26/10/21.
+    6|       |//
+    7|       |//  This file was automatically generated and should not be edited.
+    8|       |//
+    9|       |
+   10|       |import Foundation
+   11|       |import CoreData
+   12|       |
+   13|       |
+   14|       |extension NameTranslationMO {
+   15|       |
+   16|      0|    @nonobjc public class func fetchRequest() -> NSFetchRequest<NameTranslationMO> {
+   17|      0|        return NSFetchRequest<NameTranslationMO>(entityName: "NameTranslation")
+   18|      0|    }
+   19|       |
+   20|       |    @NSManaged public var locale: String?
+   21|       |    @NSManaged public var name: String?
+   22|       |    @NSManaged public var country: CountryMO?
+   23|       |
+   24|       |}
+   25|       |
+   26|       |extension NameTranslationMO : Identifiable {
+   27|       |
+   28|       |}
+
+/Users/aikesiero/Library/Developer/Xcode/DerivedData/CountriesSwiftUI-cmhadclklzwvgthbgeaahqohvrbx/SourcePackages/checkouts/EnvironmentOverrides/Sources/EnvironmentOverrides/BaseView.swift:
+    1|       |import SwiftUI
+    2|       |
+    3|       |struct BaseView: View {
+    4|       |    
+    5|       |    let isExpanded: Bool
+    6|       |    
+    7|      3|    var body: some View {
+    8|      3|        box
+    9|      3|            .frame(maxWidth: isExpanded ? expandedSize.width : buttonSize,
+   10|      3|                   maxHeight: isExpanded ? expandedSize.height : buttonSize,
+   11|      3|                   alignment: .bottomTrailing)
+   12|      3|            .overlay(innerElements.opacity(isExpanded ? 0 : 1), alignment: .bottomTrailing)
+   13|      3|    }
+   14|       |}
+   15|       |
+   16|       |private extension BaseView {
+   17|       |    
+   18|      0|    var expandedSize: CGSize { CGSize(width: 300, height: 278) }
+   19|     96|    var buttonSize: CGFloat { 44 }
+   20|      9|    var cornerFactor: CGFloat { 0.17 }
+   21|     30|    var toggleOffset: CGFloat { 0.19 }
+   22|     27|    var toggleHeight: CGFloat { 0.24 }
+   23|     18|    var strokeFactor: CGFloat { 0.09 }
+   24|       |    #if os(macOS)
+   25|       |    var strokeColor: Color { Color(#colorLiteral(red: 0.2549019754, green: 0.2745098174, blue: 0.3019607961, alpha: 1)) }
+   26|       |    var bgColor: Color { Color(#colorLiteral(red: 0.8039215803, green: 0.8039215803, blue: 0.8039215803, alpha: 1)) }
+   27|       |    #else
+   28|      6|    var strokeColor: Color { Color(UIColor.separator) }
+   29|      3|    var bgColor: Color { Color(UIColor.tertiarySystemBackground) }
+   30|       |    #endif
+   31|       |    
+   32|      3|    var box: some View {
+   33|      3|        ZStack {
+   34|      3|            RoundedRectangle(cornerRadius: buttonSize * cornerFactor - strokeWidth)
+   35|      3|                .inset(by: -0.5 * strokeWidth)
+   36|      3|            .fill(bgColor)
+   37|      3|            RoundedRectangle(cornerRadius: buttonSize * cornerFactor - strokeWidth)
+   38|      3|                .stroke(strokeColor, style: strokeStyle)
+   39|      3|        }
+   40|      3|        .frame(width: isExpanded ? nil : buttonSize,
+   41|      3|               height: isExpanded ? nil : buttonSize)
+   42|      3|    }
+   43|       |    
+   44|      3|    var innerElements: some View {
+   45|      3|        Path { path in
+   46|      3|            let cornerRadius = buttonSize * cornerFactor - 0.5 * strokeWidth
+   47|      3|            let cornerSize = CGSize(width: cornerRadius, height: cornerRadius)
+   48|      3|            path.addRoundedRect(in: CGRect(
+   49|      3|                x: buttonSize * toggleOffset,
+   50|      3|                y: buttonSize * toggleOffset,
+   51|      3|                width: buttonSize * (1 - 2 * toggleOffset),
+   52|      3|                height: buttonSize * toggleHeight), cornerSize: cornerSize)
+   53|      3|            path.addRoundedRect(in: CGRect(
+   54|      3|                x: buttonSize * (1 - toggleOffset) - buttonSize * toggleHeight,
+   55|      3|                y: buttonSize * toggleOffset,
+   56|      3|                width: buttonSize * toggleHeight,
+   57|      3|                height: buttonSize * toggleHeight), cornerSize: cornerSize)
+   58|      3|            path.addRoundedRect(in: CGRect(
+   59|      3|                x: buttonSize * toggleOffset,
+   60|      3|                y: buttonSize * (1 - toggleOffset - toggleHeight),
+   61|      3|                width: buttonSize * (1 - 2 * toggleOffset),
+   62|      3|                height: buttonSize * toggleHeight), cornerSize: cornerSize)
+   63|      3|            path.addRoundedRect(in: CGRect(
+   64|      3|                x: buttonSize * toggleOffset,
+   65|      3|                y: buttonSize * (1 - toggleOffset - toggleHeight),
+   66|      3|                width: buttonSize * toggleHeight,
+   67|      3|                height: buttonSize * toggleHeight), cornerSize: cornerSize)
+   68|      3|        }
+   69|      3|        .stroke(strokeColor, style: strokeStyle)
+   70|      3|        .frame(width: buttonSize, height: buttonSize)
+   71|      3|    }
+   72|       |    
+   73|      6|    var strokeStyle: StrokeStyle {
+   74|      6|        StrokeStyle(lineWidth: strokeWidth)
+   75|      6|    }
+   76|       |    
+   77|     18|    var strokeWidth: CGFloat {
+   78|     18|        isExpanded ? 1 : buttonSize * strokeFactor
+   79|     18|    }
+   80|       |}
+   81|       |
+   82|       |#if DEBUG
+   83|       |
+   84|       |struct BaseView_Previews: PreviewProvider {
+   85|       |    
+   86|       |    static let height = Binding<CGFloat>(wrappedValue: 140)
+   87|       |    
+   88|      0|    static var previews: some View {
+   89|      0|        Group {
+   90|      0|            ZStack {
+   91|      0|                bgView
+   92|      0|                HStack {
+   93|      0|                    BaseView(isExpanded: false)
+   94|      0|                    Spacer(minLength: 20)
+   95|      0|                    BaseView(isExpanded: true)
+   96|      0|                }.padding()
+   97|      0|            }.colorScheme(.light)
+   98|      0|            ZStack {
+   99|      0|                bgView
+  100|      0|                HStack {
+  101|      0|                    BaseView(isExpanded: false)
+  102|      0|                    Spacer(minLength: 20)
+  103|      0|                    BaseView(isExpanded: true)
+  104|      0|                }.padding()
+  105|      0|            }.colorScheme(.dark)
+  106|      0|        }
+  107|      0|        .previewLayout(.fixed(width: 260, height: 200))
+  108|      0|    }
+  109|       |    
+  110|      0|    private static var bgView: some View {
+  111|      0|        #if os(macOS)
+  112|      0|        return Color(#colorLiteral(red: 1, green: 1, blue: 1, alpha: 1))
+  113|      0|        #else
+  114|      0|        return Color(UIColor.systemBackground)
+  115|      0|        #endif
+  116|      0|    }
+  117|       |}
+  118|       |
+  119|       |#endif
+
+/Users/aikesiero/Library/Developer/Xcode/DerivedData/CountriesSwiftUI-cmhadclklzwvgthbgeaahqohvrbx/SourcePackages/checkouts/EnvironmentOverrides/Sources/EnvironmentOverrides/EnvironmentOverridesView.swift:
+    1|       |import SwiftUI
+    2|       |
+    3|       |public extension EnvironmentValues {
+    4|       |    struct Diff: OptionSet {
+    5|       |        public let rawValue: Int
+    6|       |        
+    7|     23|        public init(rawValue: Int) {
+    8|     23|            self.rawValue = rawValue
+    9|     23|        }
+   10|       |
+   11|       |        public static let locale = Diff(rawValue: 1 << 0)
+   12|       |        public static let colorScheme = Diff(rawValue: 1 << 1)
+   13|       |        public static let sizeCategory = Diff(rawValue: 1 << 2)
+   14|       |        public static let layoutDirection = Diff(rawValue: 1 << 3)
+   15|       |        public static let accessibilityEnabled = Diff(rawValue: 1 << 4)
+   16|       |    }
+   17|       |}
+   18|       |
+   19|       |public extension View {
+   20|       |    func attachEnvironmentOverrides(
+   21|     12|        onChange: ((EnvironmentValues.Diff) -> Void)? = nil) -> some View {
+   22|     12|        modifier(EnvironmentOverridesModifier(onChange: onChange))
+   23|     12|    }
+   24|       |}
+   25|       |
+   26|       |struct EnvironmentOverridesModifier: ViewModifier {
+   27|       |    
+   28|      0|    @Environment(\.colorScheme) private var defaultColorScheme: ColorScheme
+   29|      0|    @Environment(\.sizeCategory) private var defaultSizeCategory: ContentSizeCategory
+   30|      0|    @Environment(\.layoutDirection) private var defaultLayoutDirection: LayoutDirection
+   31|      0|    @Environment(\.accessibilityEnabled) private var defaultAccessibilityEnabled: Bool
+   32|      0|    @State private var values = EnvironmentValues()
+   33|       |    let onChange: ((EnvironmentValues.Diff) -> Void)?
+   34|       |    
+   35|      6|    func body(content: Content) -> some View {
+   36|      6|        content
+   37|      3|            .onAppear { self.copyDefaultSettings() }
+   38|      6|            .environment(\.locale, values.locale)
+   39|      6|            .environment(\.sizeCategory, values.sizeCategory)
+   40|      6|            .environment(\.layoutDirection, values.layoutDirection)
+   41|      6|            .environment(\.accessibilityEnabled, values.accessibilityEnabled)
+   42|      6|            .overlay(EnvironmentOverridesView(params: settings),
+   43|      6|                     alignment: .bottomTrailing)
+   44|      6|            .environment(\.sizeCategory, .medium) // fixed for the control view
+   45|      6|            .environment(\.colorScheme, values.colorScheme)
+   46|      6|    }
+   47|       |    
+   48|      3|    private func copyDefaultSettings() {
+   49|      3|        values.colorScheme = defaultColorScheme
+   50|      3|        values.sizeCategory = defaultSizeCategory
+   51|      3|        values.layoutDirection = defaultLayoutDirection
+   52|      3|        values.accessibilityEnabled = defaultAccessibilityEnabled
+   53|      3|        if let locale = EnvironmentValues.currentLocale {
+   54|      3|            values.locale = locale
+   55|      3|        }
+   56|      3|    }
+   57|       |    
+   58|      6|    private var settings: SettingsView.Params {
+   59|      6|        return SettingsView.Params(
+   60|      6|            locales: EnvironmentValues.supportedLocales,
+   61|      0|            locale: $values.locale.onChange({ _ in
+   62|      0|                self.onChange?(.locale)
+   63|      0|            }),
+   64|      0|            colorScheme: $values.colorScheme.onChange({ _ in
+   65|      0|                self.onChange?(.colorScheme)
+   66|      0|            }),
+   67|      0|            textSize: $values.sizeCategory.onChange({ _ in
+   68|      0|                self.onChange?(.sizeCategory)
+   69|      0|            }),
+   70|      0|            layoutDirection: $values.layoutDirection.onChange({ _ in
+   71|      0|                self.onChange?(.layoutDirection)
+   72|      0|            }),
+   73|      0|            accessibilityEnabled: $values.accessibilityEnabled.onChange({ _ in
+   74|      0|                self.onChange?(.accessibilityEnabled)
+   75|      0|            }))
+   76|      6|    }
+   77|       |}
+   78|       |
+   79|       |// MARK: -
+   80|       |
+   81|       |struct EnvironmentOverridesView: View {
+   82|       |    
+   83|       |    @State private var isExpanded = false
+   84|       |    @State private var isHidden = false
+   85|       |    private let params: SettingsView.Params
+   86|       |    
+   87|      6|    init(params: SettingsView.Params) {
+   88|      6|        self.params = params
+   89|      6|    }
+   90|       |    
+   91|      6|    var body: some View {
+   92|      6|        BaseView(isExpanded: isExpanded)
+   93|      6|            .contentShape(TappableArea(isExpanded: isExpanded))
+   94|      0|            .onTapGesture {
+   95|      0|                withAnimation(.easeInOut(duration: self.duration)) {
+   96|      0|                    self.isExpanded.toggle()
+   97|      0|                }
+   98|      0|            }
+   99|      6|            .overlay(SettingsView(params: params, isHidden: $isHidden)
+  100|      6|                .instantFade(display: isExpanded, duration: duration))
+  101|      6|            .padding(8)
+  102|      6|            .opacity(isHidden ? 0 : 1)
+  103|      6|    }
+  104|       |    
+  105|      6|    private var duration: TimeInterval { 0.2 }
+  106|       |}
+  107|       |
+  108|       |private extension View {
+  109|      6|    func instantFade(display: Bool, duration: TimeInterval) -> some View {
+  110|      6|        opacity(display ? 1 : 0).animation(display ?
+  111|      0|            Animation.linear(duration: 0.01).delay(duration - 0.01) :
+  112|      6|            Animation.linear(duration: 0.01))
+  113|      6|    }
+  114|       |}
+  115|       |
+  116|       |struct TappableArea: Shape {
+  117|       |    
+  118|       |    let isExpanded: Bool
+  119|       |    
+  120|      0|    func path(in rect: CGRect) -> Path {
+  121|      0|        // For .contentShape() "eoFill: true" has no effect (bug in SwiftUI)
+  122|      0|        // So have to define tappable areas manually:
+  123|      0|        if isExpanded {
+  124|      0|            var path = Path()
+  125|      0|            let widthForToggle = rect.width - 60
+  126|      0|            path.addRect(CGRect(x: 0, y: 0, width: rect.width, height: 40))
+  127|      0|            path.addRect(CGRect(x: 0, y: 0, width: widthForToggle, height: 80))
+  128|      0|            path.addRect(CGRect(x: 0, y: 0, width: 50, height: rect.height))
+  129|      0|            path.addRect(CGRect(x: 0, y: rect.height - 110, width: widthForToggle, height: 70))
+  130|      0|            return path
+  131|      0|        } else {
+  132|      0|            return Path(rect)
+  133|      0|        }
+  134|      0|        
+  135|      0|    }
+  136|       |}
+  137|       |
+  138|       |#if DEBUG
+  139|       |
+  140|       |struct EnvironmentOverridesView_Previews: PreviewProvider {
+  141|      0|    static var previews: some View {
+  142|      0|        bgView
+  143|      0|            .overlay(EnvironmentOverridesView(params: .preview()),
+  144|      0|                     alignment: .bottomTrailing)
+  145|      0|            .colorScheme(.light)
+  146|      0|    }
+  147|       |    
+  148|      0|    private static var bgView: some View {
+  149|      0|        #if os(macOS)
+  150|      0|        return Color(#colorLiteral(red: 1, green: 1, blue: 1, alpha: 1))
+  151|      0|        #else
+  152|      0|        return Color(UIColor.systemBackground)
+  153|      0|        #endif
+  154|      0|    }
+  155|       |}
+  156|       |
+  157|       |extension Binding {
+  158|      0|    init(wrappedValue: Value) {
+  159|      0|        var value = wrappedValue
+  160|      0|        self.init(get: { value }, set: { value = $0 })
+  161|      0|    }
+  162|       |}
+  163|       |
+  164|       |#endif
+
+/Users/aikesiero/Library/Developer/Xcode/DerivedData/CountriesSwiftUI-cmhadclklzwvgthbgeaahqohvrbx/SourcePackages/checkouts/EnvironmentOverrides/Sources/EnvironmentOverrides/GeneralHelpers.swift:
+    1|       |import SwiftUI
+    2|       |
+    3|       |// MARK: - Bindings
+    4|       |
+    5|       |extension Binding {
+    6|       |    
+    7|       |    func map<T>(toValue: @escaping (Value) -> T,
+    8|     18|                fromValue: @escaping (T) -> Value) -> Binding<T> {
+    9|    114|        return .init(get: {
+   10|    114|            toValue(self.wrappedValue)
+   11|      0|        }, set: { value in
+   12|      0|            self.wrappedValue = fromValue(value)
+   13|      0|        })
+   14|     18|    }
+   15|       |    
+   16|     36|    func onChange(_ perform: @escaping (Value) -> Void) -> Binding<Value> {
+   17|    108|        return .init(get: {
+   18|    108|            self.wrappedValue
+   19|      0|        }, set: { value in
+   20|      0|            self.wrappedValue = value
+   21|      0|            perform(value)
+   22|      0|        })
+   23|     36|    }
+   24|       |}
+   25|       |
+   26|       |// MARK: - EnvironmentValues
+   27|       |
+   28|       |extension ContentSizeCategory {
+   29|       |    
+   30|     36|    static var stride: CGFloat {
+   31|     36|        return 1 / CGFloat(allCases.count - 1)
+   32|     36|    }
+   33|       |    
+   34|     30|    var floatValue: CGFloat {
+   35|      0|        let index = CGFloat(ContentSizeCategory.allCases.firstIndex(of: self) ?? 0)
+   36|     30|        return index * ContentSizeCategory.stride
+   37|     30|    }
+   38|       |    
+   39|      0|    init(floatValue: CGFloat) {
+   40|      0|        let index = Int(round(floatValue / ContentSizeCategory.stride))
+   41|      0|        self = ContentSizeCategory.allCases[index]
+   42|      0|    }
+   43|       |    
+   44|      3|    var name: String {
+   45|      3|        switch self {
+   46|      0|        case .extraSmall: return "XS"
+   47|      0|        case .small: return "S"
+   48|      0|        case .medium: return "M"
+   49|      3|        case .large: return "L"
+   50|      0|        case .extraLarge: return "XL"
+   51|      0|        case .extraExtraLarge: return "XXL"
+   52|      0|        case .extraExtraExtraLarge: return "XXXL"
+   53|      0|        case .accessibilityMedium: return "Accessibility M"
+   54|      0|        case .accessibilityLarge: return "Accessibility L"
+   55|      0|        case .accessibilityExtraLarge: return "Accessibility XL"
+   56|      0|        case .accessibilityExtraExtraLarge: return "Accessibility XXL"
+   57|      0|        case .accessibilityExtraExtraExtraLarge: return "Accessibility XXXL"
+   58|      0|        @unknown default: return "Unknown"
+   59|      3|        }
+   60|      3|    }
+   61|       |}
+   62|       |
+   63|       |extension EnvironmentValues {
+   64|       |    
+   65|      1|    static var supportedLocales: [Locale] = {
+   66|      1|        let bundle = Bundle.main
+   67|      4|        return bundle.localizations.map { Locale(identifier: $0) }
+   68|      1|    }()
+   69|       |    
+   70|      3|    static var currentLocale: Locale? {
+   71|      3|        let current = Locale.current
+   72|      3|        let fullId = current.identifier
+   73|      3|        let shortId = String(fullId.prefix(2))
+   74|      3|        return supportedLocales.locale(withId: fullId) ??
+   75|      0|            supportedLocales.locale(withId: shortId)
+   76|      3|    }
+   77|       |    
+   78|      6|    static var isMac: Bool {
+   79|      6|        #if targetEnvironment(macCatalyst) || os(macOS)
+   80|      6|        return true
+   81|      6|        #else
+   82|      6|        return false
+   83|      6|        #endif
+   84|      6|    }
+   85|       |}
+   86|       |
+   87|       |private extension Array where Element == Locale {
+   88|      3|    func locale(withId identifier: String) -> Element? {
+   89|      6|        first(where: { $0.identifier.hasPrefix(identifier) })
+   90|      3|    }
+   91|       |}
+   92|       |
+   93|       |// MARK: - ScreenshotGenerator
+   94|       |
+   95|       |struct ScreenshotGenerator { }
+   96|       |
+   97|       |extension ScreenshotGenerator {
+   98|       |    
+   99|       |    @discardableResult
+  100|      0|    static func takeScreenshot() -> Bool {
+  101|      0|        #if !os(macOS)
+  102|      0|        let renderer = UIGraphicsImageRenderer(size: UIScreen.main.bounds.size)
+  103|      0|        let image = renderer.image { _ in
+  104|      0|            UIApplication.shared.windows
+  105|      0|                .sorted(by: { $0.windowLevel.rawValue < $1.windowLevel.rawValue })
+  106|      0|                .forEach { window in
+  107|      0|                    window.drawHierarchy(in: window.frame, afterScreenUpdates: false)
+  108|      0|                }
+  109|      0|        }
+  110|      0|        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+  111|      0|        #endif
+  112|      0|        return true
+  113|      0|    }
+  114|       |}
+  115|       |
+  116|       |// MARK: - Haptic
+  117|       |
+  118|       |struct Haptic {
+  119|       |    
+  120|      0|    static func successFeedback() {
+  121|      0|        #if !os(macOS)
+  122|      0|        UINotificationFeedbackGenerator().notificationOccurred(.success)
+  123|      0|        #endif
+  124|      0|    }
+  125|       |    
+  126|      0|    static func errorFeedback() {
+  127|      0|        #if !os(macOS)
+  128|      0|        UINotificationFeedbackGenerator().notificationOccurred(.error)
+  129|      0|        #endif
+  130|      0|    }
+  131|       |    
+  132|      0|    static func toggleFeedback() {
+  133|      0|        #if !os(macOS)
+  134|      0|        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+  135|      0|        #endif
+  136|      0|    }
+  137|       |}
+
+/Users/aikesiero/Library/Developer/Xcode/DerivedData/CountriesSwiftUI-cmhadclklzwvgthbgeaahqohvrbx/SourcePackages/checkouts/EnvironmentOverrides/Sources/EnvironmentOverrides/SettingsElements.swift:
+    1|       |import SwiftUI
+    2|       |
+    3|       |extension SettingsView {
+    4|       |    
+    5|       |    struct Toggle: View {
+    6|       |        
+    7|       |        let title: LocalizedStringKey
+    8|       |        let value: Binding<Bool>
+    9|       |        
+   10|     18|        var body: some View {
+   11|     18|            SwiftUI.Toggle(isOn: value) {
+   12|     18|                Text(title).settingsStyle()
+   13|     18|            }
+   14|     18|        }
+   15|       |    }
+   16|       |    
+   17|       |    struct Picker<T>: View where T: Hashable {
+   18|       |        
+   19|       |        let title: LocalizedStringKey
+   20|       |        let pickerWidth: CGFloat
+   21|       |        let value: Binding<T>
+   22|       |        let values: [T]
+   23|       |        let valueTitle: (T) -> String
+   24|       |        
+   25|      6|        var body: some View {
+   26|      6|            HStack {
+   27|      6|                Text(title).settingsStyle()
+   28|      6|                Spacer(minLength: 8)
+   29|      0|                SwiftUI.Picker("", selection: value.onChange({ _ in
+   30|      0|                    Haptic.toggleFeedback()
+   31|      6|                })) {
+   32|     24|                    ForEach(values, id: \.self) { value in
+   33|     24|                        Text(self.valueTitle(value))
+   34|     24|                    }
+   35|      6|                }.pickerStyle(SegmentedPickerStyle())
+   36|      6|                .widthMeasurer()
+   37|      6|                .frame(maxWidth: pickerWidth, alignment: .trailing)
+   38|      6|            }
+   39|      6|        }
+   40|       |    }
+   41|       |
+   42|       |    struct Slider: View {
+   43|       |        
+   44|       |        let title: LocalizedStringKey
+   45|       |        let sliderWidth: CGFloat
+   46|       |        let value: Binding<CGFloat>
+   47|       |        let stride: CGFloat
+   48|       |        let valueTitle: () -> String
+   49|       |        @State private var isLoaded: Bool = false
+   50|       |        
+   51|      6|        var body: some View {
+   52|      6|            ZStack {
+   53|      6|                if isLoaded {
+   54|      3|                    self.content
+   55|      6|                } else {
+   56|      3|                    EmptyView()
+   57|      6|                }
+   58|      6|            }
+   59|      3|            .onAppear { self.isLoaded = true }
+   60|      2|            .onDisappear { self.isLoaded = false }
+   61|      6|        }
+   62|       |
+   63|      3|        var content: some View {
+   64|      3|            HStack {
+   65|      3|                Text(title).settingsStyle()
+   66|      3|                Spacer(minLength: 8)
+   67|      3|                SwiftUI.Slider(value: value, in: 0 ... 1, step: stride)
+   68|      3|                    .widthMeasurer()
+   69|      3|                    .frame(maxWidth: sliderWidth, alignment: .trailing)
+   70|      3|                    .background(Text(valueTitle())
+   71|      3|                        .font(.footnote).fontWeight(.light)
+   72|      3|                        .offset(x: 0, y: 20))
+   73|      3|            }
+   74|      3|        }
+   75|       |
+   76|       |    }
+   77|       |}
+   78|       |
+   79|       |extension SettingsView {
+   80|       |    struct ControlWidth: PreferenceKey {
+   81|       |        static var defaultValue: CGFloat = 300
+   82|     33|        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+   83|     33|            let next = nextValue()
+   84|     33|            if next > 40 {
+   85|     24|                value = min(value, nextValue())
+   86|     33|            }
+   87|     33|        }
+   88|       |    }
+   89|       |}
+   90|       |
+   91|       |private extension View {
+   92|      9|    func widthMeasurer() -> some View {
+   93|      6|        background(GeometryReader(content: { proxy in
+   94|      6|            Color.clear.preference(key: SettingsView.ControlWidth.self,
+   95|      6|                                   value: proxy.size.width)
+   96|      6|                .hidden()
+   97|      6|        }))
+   98|      9|    }
+   99|       |}
+
+/Users/aikesiero/Library/Developer/Xcode/DerivedData/CountriesSwiftUI-cmhadclklzwvgthbgeaahqohvrbx/SourcePackages/checkouts/EnvironmentOverrides/Sources/EnvironmentOverrides/SettingsView.swift:
+    1|       |import SwiftUI
+    2|       |
+    3|       |extension SettingsView {
+    4|       |    struct Params {
+    5|       |        let locales: [Locale]
+    6|       |        let locale: Binding<Locale>
+    7|       |        let colorScheme: Binding<ColorScheme>
+    8|       |        let textSize: Binding<ContentSizeCategory>
+    9|       |        let layoutDirection: Binding<LayoutDirection>
+   10|       |        let accessibilityEnabled: Binding<Bool>
+   11|       |    }
+   12|       |}
+   13|       |
+   14|       |struct SettingsView: View {
+   15|       |    
+   16|       |    private let params: Params
+   17|       |    @Binding private var isHidden: Bool
+   18|      6|    @State private var controlWidth: CGFloat = ControlWidth.defaultValue
+   19|       |    
+   20|      6|    init(params: Params, isHidden: Binding<Bool>) {
+   21|      6|        self.params = params
+   22|      6|        _isHidden = isHidden
+   23|      6|    }
+   24|       |    
+   25|      6|    var body: some View {
+   26|      6|        VStack {
+   27|      6|            title.edgePadding()
+   28|      6|            Divider()
+   29|      6|            Group {
+   30|      6|                themeToggle
+   31|      6|                localeSelector.disabled(params.locales.count < 2)
+   32|      6|                textSizeSlider
+   33|      6|                layoutDirectionToggle
+   34|      6|                accessibilityToggle
+   35|      6|                screenshotButton.disabled(EnvironmentValues.isMac)
+   36|      6|            }.edgePadding()
+   37|      6|        }.padding([.top, .bottom], 10)
+   38|      3|        .onPreferenceChange(ControlWidth.self) {
+   39|      3|            self.controlWidth = $0
+   40|      3|        }
+   41|      6|    }
+   42|       |}
+   43|       |
+   44|       |private extension SettingsView {
+   45|       |    
+   46|      6|    var title: some View {
+   47|      6|        Text("Environment Overrides").font(.subheadline).bold()
+   48|      6|    }
+   49|       |    
+   50|      6|    var themeToggle: some View {
+   51|      6|        SettingsView.Toggle(title: "Light or Dark",
+   52|      6|                            value: params.colorScheme
+   53|     42|            .map(toValue: { $0 == .dark },
+   54|      0|                 fromValue: { $0 ? .dark : .light })
+   55|      6|        )
+   56|      6|    }
+   57|       |    
+   58|      6|    var localeSelector: some View {
+   59|      6|        SettingsView.Picker(
+   60|      6|            title: "Locale", pickerWidth: controlWidth, value: params.locale,
+   61|     24|            values: params.locales, valueTitle: { $0.identifier })
+   62|      6|    }
+   63|       |    
+   64|      6|    var textSizeSlider: some View {
+   65|      6|        SettingsView.Slider(
+   66|      6|            title: "Text", sliderWidth: controlWidth,
+   67|      6|            value: params.textSize.map(
+   68|     30|                toValue: { $0.floatValue },
+   69|      0|                fromValue: { ContentSizeCategory(floatValue: $0) }),
+   70|      3|            stride: ContentSizeCategory.stride) {
+   71|      3|                self.params.textSize.wrappedValue.name
+   72|      3|            }
+   73|      6|    }
+   74|       |    
+   75|      6|    var layoutDirectionToggle: some View {
+   76|      6|        SettingsView.Toggle(title: "Inverse Layout",
+   77|      6|                            value: params.layoutDirection
+   78|     42|            .map(toValue: { $0 == .rightToLeft },
+   79|      0|                 fromValue: { $0 ? .rightToLeft : .leftToRight })
+   80|      6|        )
+   81|      6|    }
+   82|       |    
+   83|      6|    var accessibilityToggle: some View {
+   84|      6|        SettingsView.Toggle(title: "Accessibility",
+   85|      6|                            value: params.accessibilityEnabled)
+   86|      6|    }
+   87|       |    
+   88|      6|    var screenshotButton: some View {
+   89|      0|        Button(action: {
+   90|      0|            self.isHidden = true
+   91|      0|            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+   92|      0|                if ScreenshotGenerator.takeScreenshot() {
+   93|      0|                    Haptic.successFeedback()
+   94|      0|                } else {
+   95|      0|                    Haptic.errorFeedback()
+   96|      0|                }
+   97|      0|                self.isHidden = false
+   98|      0|            }
+   99|      6|        }, label: { Text("Take Screenshot") })
+  100|      6|    }
+  101|       |}
+  102|       |
+  103|       |// MARK: - Styling
+  104|       |
+  105|       |extension Text {
+  106|     27|    func settingsStyle() -> Text {
+  107|     27|        font(.footnote).bold()
+  108|     27|    }
+  109|       |}
+  110|       |
+  111|       |private extension View {
+  112|     12|    func edgePadding() -> some View {
+  113|     12|        padding([.leading, .trailing], 8)
+  114|     12|    }
+  115|       |}
+  116|       |
+  117|       |#if DEBUG
+  118|       |
+  119|       |extension SettingsView.Params {
+  120|      0|    static func preview() -> SettingsView.Params {
+  121|      0|        SettingsView.Params(
+  122|      0|            locales: [
+  123|      0|                Locale(identifier: "en"),
+  124|      0|                Locale(identifier: "ru"),
+  125|      0|                Locale(identifier: "fr")
+  126|      0|            ],
+  127|      0|            locale: Binding<Locale>(wrappedValue: Locale(identifier: "en")),
+  128|      0|            colorScheme: Binding<ColorScheme>(wrappedValue: .dark),
+  129|      0|            textSize: Binding<ContentSizeCategory>(wrappedValue: .medium),
+  130|      0|            layoutDirection: Binding<LayoutDirection>(wrappedValue: .leftToRight),
+  131|      0|            accessibilityEnabled: Binding<Bool>(wrappedValue: false))
+  132|      0|    }
+  133|       |}
+  134|       |
+  135|       |struct SettingsView_Previews: PreviewProvider {
+  136|       |
+  137|      0|    static var previews: some View {
+  138|      0|        Group {
+  139|      0|            ZStack {
+  140|      0|                bgView
+  141|      0|                SettingsView(params: .preview(), isHidden: Binding<Bool>(wrappedValue: false))
+  142|      0|            }
+  143|      0|            .colorScheme(.light)
+  144|      0|            ZStack {
+  145|      0|                bgView
+  146|      0|                SettingsView(params: .preview(), isHidden: Binding<Bool>(wrappedValue: false))
+  147|      0|            }
+  148|      0|            .colorScheme(.dark)
+  149|      0|        }
+  150|      0|        .previewLayout(.fixed(width: 200, height: 300))
+  151|      0|    }
+  152|       |    
+  153|      0|    private static var bgView: some View {
+  154|      0|        #if os(macOS)
+  155|      0|        return Color(#colorLiteral(red: 1, green: 1, blue: 1, alpha: 1))
+  156|      0|        #else
+  157|      0|        return Color(UIColor.tertiarySystemBackground)
+  158|      0|        #endif
+  159|      0|    }
+  160|       |}
+  161|       |
+  162|       |#endif
+
