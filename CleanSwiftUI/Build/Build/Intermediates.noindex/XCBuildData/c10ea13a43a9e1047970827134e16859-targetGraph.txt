@@ -1,0 +1,4 @@
+Target dependency graph (2 targets)
+CleanSwiftUI in CleanSwiftUI, no dependencies
+UnitTest in CleanSwiftUI, depends on:
+CleanSwiftUI in CleanSwiftUI (explicit)

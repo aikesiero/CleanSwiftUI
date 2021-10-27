@@ -1,0 +1,6 @@
+version: "Apple Swift version 5.5.1 (swiftlang-1300.0.31.4 clang-1300.0.29.6)"
+options: "61abb3b3b38498a844cd1410d2b1951067965cdc4f176fc12d1fbae00ae6aac0"
+build_start_time: [1635292804, 420248031]
+build_end_time: [1635292807, 437150955]
+inputs:
+  "/Users/aikesiero/Cursos/Swift/Clean SwiftUI/Clean SwiftUI/CleanSwiftUI/UnitTest/ExampleTest.swift": [1635275317, 976905345]

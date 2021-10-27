@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>logFormatVersion</key>
+	<integer>10</integer>
+	<key>logs</key>
+	<dict>
+		<key>48190B2E-F4AB-48AD-9738-CB566DE0D0C7</key>
+		<dict>
+			<key>auxiliaryLogUniqueIdentifier</key>
+			<string>A2526564-E657-4FE2-8A90-78CF53246396</string>
+			<key>auxiliaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>S</string>
+			</dict>
+			<key>className</key>
+			<string>IDESchemeActionsInvocationRecord</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>com.apple.dt.unit.cocoaUnitTest</string>
+			<key>fileName</key>
+			<string>Run-CleanSwiftUI-2021.10.27_01-59-22-+0200.xcresult</string>
+			<key>hasAuxiliaryLog</key>
+			<true/>
+			<key>hasCoverageData</key>
+			<true/>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>E</string>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>CleanSwiftUI project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>CleanSwiftUI</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Run CleanSwiftUI</string>
+			<key>timeStartedRecording</key>
+			<real>656985562.88526797</real>
+			<key>timeStoppedRecording</key>
+			<real>0.0</real>
+			<key>title</key>
+			<string>Run CleanSwiftUI</string>
+			<key>uniqueIdentifier</key>
+			<string>48190B2E-F4AB-48AD-9738-CB566DE0D0C7</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

@@ -1,0 +1,8 @@
+version: "Apple Swift version 5.5.1 (swiftlang-1300.0.31.4 clang-1300.0.29.6)"
+options: "c6c4796fd56cfc51b7454b98bdb714a65496ab76fa76d530505ca3f5e187f164"
+build_start_time: [1635292764, 150940895]
+build_end_time: [1635292802, 547832965]
+inputs:
+  "/Users/aikesiero/Cursos/Swift/Clean SwiftUI/Clean SwiftUI/CleanSwiftUI/CleanSwiftUI/ContentView.swift": [1635174045, 823956489]
+  "/Users/aikesiero/Cursos/Swift/Clean SwiftUI/Clean SwiftUI/CleanSwiftUI/CleanSwiftUI/System/AppDelegate.swift": [1635174483, 805399179]
+  "/Users/aikesiero/Cursos/Swift/Clean SwiftUI/Clean SwiftUI/CleanSwiftUI/CleanSwiftUI/System/SceneDelegate.swift": [1635174495, 719906806]
